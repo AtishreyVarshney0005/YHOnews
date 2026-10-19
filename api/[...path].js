@@ -33,10 +33,16 @@ function sendJson(response, status, body, headers = {}) {
 }
 
 function readJson(request) {
+  if (Buffer.isBuffer(request.body)) {
+    try {
+      return JSON.parse(request.body.toString('utf8') || '{}')
+    } catch {
+      throw Object.assign(new Error('Invalid JSON body'), { status: 400 })
+    }
+  }
   if (request.body && typeof request.body === 'object') return request.body
-  const body = Buffer.isBuffer(request.body) ? request.body.toString('utf8') : String(request.body || '')
   try {
-    return JSON.parse(body || '{}')
+    return JSON.parse(String(request.body || ''))
   } catch {
     throw Object.assign(new Error('Invalid JSON body'), { status: 400 })
   }

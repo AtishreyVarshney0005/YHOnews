@@ -11,7 +11,7 @@ Routes: `/` home, `/category/:slug`, `/article/:id`, `/search?q=`, `/about`, `/c
 
 - All sample content and images live in `src/data.js` (images are picsum.photos placeholders - swap for real ones).
 - Vite middleware provides the API locally and on Render. Vercel uses `api/[...path].js` for the same API routes.
-- For production, set `NEWS_API_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_SESSION_SECRET`. Vercel generates the session secret through its environment configuration; keep all credentials private.
+- For production, set `NEWS_API_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and a long, randomly generated `ADMIN_SESSION_SECRET`. Keep all credentials private.
 
 ## Deploying to Vercel
 
