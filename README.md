@@ -10,13 +10,14 @@ npm run preview
 Routes: `/` home, `/category/:slug`, `/article/:id`, `/search?q=`, `/about`, `/contact`, `/privacy`, `/terms`, `/admin`, `/admin/add`
 
 - All sample content and images live in `src/data.js` (images are picsum.photos placeholders - swap for real ones).
-- The app API is provided by Vite middleware, so use `npm run preview` to run the built app with its API locally. A static-only host will not provide the API routes.
-- For a production preview or Render runtime, set `NEWS_API_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_SESSION_SECRET`. To preview locally, put them in `.env.local` using `.env.example` as a template. The Render Blueprint prompts for the news API key and admin credentials and generates the session secret.
+- Vite middleware provides the API locally and on Render. Vercel uses `api/[...path].js` for the same API routes.
+- For production, set `NEWS_API_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_SESSION_SECRET`. Vercel generates the session secret through its environment configuration; keep all credentials private.
 
-## Deploying a demo to Render
+## Deploying to Vercel
 
-1. Push this repository to GitHub and create a new Blueprint in Render from the repository. Render will detect `render.yaml`.
-2. Enter your NewsAPI key and a unique admin email and password when prompted. Do not use credentials that are used elsewhere.
-3. Deploy the `yhu-news-demo` web service. Open its URL and sign in at `/admin`.
+1. Import this GitHub repository in Vercel. Vercel detects the Vite app and uses `vercel.json` to build the `dist` directory and route client-side pages.
+2. Create a **private Vercel Blob** store in the project's Storage tab and connect it to Production. The store provides the server-side credentials used by the API to persist article data.
+3. Add `NEWS_API_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and a long random `ADMIN_SESSION_SECRET` to the project's Production environment variables. Never commit or share these values.
+4. Deploy the project and sign in at `/admin`.
 
-This demo runs the built app with Vite's preview server so its existing API middleware is available. Articles are stored in `data/articles.json` on the service filesystem; edits are for demonstration and may be lost when Render redeploys or replaces the service. Add persistent storage or a database before using it for permanent content or production workloads.
+On Vercel, published and draft articles are stored in the private Blob store rather than the function filesystem. Local development and Render continue to use `data/articles.json`.
