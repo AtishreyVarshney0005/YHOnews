@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Mail, Phone, MapPin } from 'lucide-react'
 
 const SUBJECTS = ['General enquiry', 'News tip', 'Advertising', 'Feedback', 'Technical issue']
+const CONTACT_EMAIL = 'yhoindia@gmail.com'
 
 export default function Contact() {
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
@@ -19,6 +20,14 @@ export default function Contact() {
     if (!form.message.trim()) err.message = 'Enter your message.'
     setErrors(err)
     if (Object.keys(err).length === 0) {
+      const subject = `YHO News contact: ${form.subject}`
+      const body = [
+        `Name: ${form.name.trim()}`,
+        `Email: ${form.email.trim()}`,
+        '',
+        form.message.trim(),
+      ].join('\n')
+      window.location.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
       setSent(true)
     }
   }
@@ -38,7 +47,7 @@ export default function Contact() {
           </div>
           <div className="info-item">
             <span className="round solid" aria-hidden="true"><Mail /></span>
-            <div><h3>Email us</h3><a href="mailto:yhoindia@gmail.com">yhoindia@gmail.com</a></div>
+            <div><h3>Email us</h3><a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></div>
           </div>
           <div className="info-item">
             <span className="round solid" aria-hidden="true"><Phone /></span>
@@ -51,7 +60,7 @@ export default function Contact() {
         </aside>
 
         <form className="card form" onSubmit={submit} noValidate aria-labelledby="contact-form-title">
-          {sent && <p className="form-notice" role="status">This form isn't connected to message delivery yet. Please <a href="mailto:yhoindia@gmail.com">email us directly</a>.</p>}
+          {sent && <p className="form-notice" role="status">Your email app should open with your message ready. Please press Send in that app to deliver it to <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.</p>}
           <div className="form-heading">
             <h2 id="contact-form-title">Send us a message</h2>
             <p>We usually respond within one working day.</p>

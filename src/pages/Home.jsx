@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { BarChart3, Settings, Trophy, Drama, GraduationCap, Heart, ChevronLeft, ChevronRight, Clock, User, ArrowRight } from 'lucide-react'
 import { SectionTitle, Row, StoryLink } from '../components/Bits.jsx'
 import NewsDateFilter from '../components/NewsDateFilter.jsx'
-import { filterArticlesByDateRange, normalizeNewsDateRange } from '../data.js'
+import { filterArticlesByDateRange, mapPublishedArticle, normalizeNewsDateRange } from '../data.js'
 
 const QUICK = [
   { label: 'Business', Icon: BarChart3, color: '#16a34a', to: '/category/business' },
@@ -72,18 +72,37 @@ export default function Home() {
     let active = true
     const loadNews = async () => {
       try {
-        const response = await fetch('/api/news')
-        const data = await response.json()
-        if (!response.ok || data.status !== 'ok') throw new Error(data.message || 'Category headlines are temporarily unavailable.')
+        const [newsResult, publishedResult] = await Promise.allSettled([
+          fetch('/api/news').then(async (response) => {
+            const data = await response.json()
+            if (!response.ok || data.status !== 'ok') throw new Error(data.message || 'Category headlines are temporarily unavailable.')
+            return data.articles || []
+          }),
+          fetch('/api/articles').then(async (response) => {
+            const data = await response.json()
+            if (!response.ok) throw new Error(data.message || 'Published articles are temporarily unavailable.')
+            return data.articles || []
+          }),
+        ])
+        const errors = [newsResult, publishedResult]
+          .filter((result) => result.status === 'rejected')
+          .map((result) => result.reason.message || 'Some news could not be loaded.')
+        if (newsResult.status === 'rejected' && publishedResult.status === 'rejected') {
+          throw new Error(errors.join(' '))
+        }
 
-        const currentArticles = (data.articles || [])
+        const currentArticles = (newsResult.status === 'fulfilled' ? newsResult.value : [])
           .filter((article) => ALLOWED_CATEGORIES.has(article.category) && article.title && article.title !== '[Removed]' && article.title.toLowerCase() !== 'google news' && article.url && !article.url.includes('access.workspace.google.com/remediate') && article.publishedAt && Number.isFinite(new Date(article.publishedAt).getTime()))
           .sort((first, second) => new Date(second.publishedAt) - new Date(first.publishedAt))
           .map(mapArticle)
+        const publishedArticles = (publishedResult.status === 'fulfilled' ? publishedResult.value : [])
+          .filter((article) => article.status === 'Published' && ALLOWED_CATEGORIES.has(article.category))
+          .map(mapPublishedArticle)
         if (active) {
-          setAllArticles(currentArticles)
-          setError('')
-          setStatus('ready')
+          const availableArticles = [...currentArticles, ...publishedArticles]
+          setAllArticles(availableArticles)
+          setError(errors.join(' '))
+          setStatus(errors.length ? (availableArticles.length ? 'partial' : 'error') : 'ready')
         }
       } catch (requestError) {
         if (active) {
@@ -142,6 +161,7 @@ export default function Home() {
       <div className="card home-date-filter">
         <NewsDateFilter value={dateRange} onChange={updateDateRange} />
       </div>
+      {status === 'partial' && <p className="muted news-list-status" role="status">Live headlines are temporarily unavailable. Showing available published stories.</p>}
       <div className="home-top">
         <div>
           <section
