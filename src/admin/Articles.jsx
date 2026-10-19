@@ -2,6 +2,20 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react'
 
+const readJsonResponse = async (response, fallbackMessage) => {
+  const text = await response.text()
+  if (!text) return {}
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new Error(fallbackMessage)
+  }
+}
+
+const normalizeArticleCategory = (article) => String(article?.category || 'Uncategorized').trim() || 'Uncategorized'
+const normalizeArticleStatus = (article) => String(article?.status || 'Draft').trim() || 'Draft'
+
 export default function Articles() {
   const [rows, setRows] = useState([])
   const [query, setQuery] = useState('')
@@ -12,9 +26,9 @@ export default function Articles() {
     let active = true
     fetch('/api/admin/articles')
       .then(async (response) => {
-        const data = await response.json()
+        const data = await readJsonResponse(response, 'Could not load articles.')
         if (!response.ok) throw new Error(data.message || 'Could not load articles.')
-        if (active) setRows(data.articles)
+        if (active) setRows(Array.isArray(data.articles) ? data.articles : [])
       })
       .catch((loadError) => { if (active) setError(loadError.message) })
       .finally(() => { if (active) setLoading(false) })
@@ -24,13 +38,15 @@ export default function Articles() {
   const remove = async (id) => {
     if (!window.confirm('Delete this article? This cannot be undone.')) return
     const response = await fetch(`/api/admin/articles/${encodeURIComponent(id)}`, { method: 'DELETE' })
-    const data = await response.json()
+    const data = await readJsonResponse(response, 'Could not delete article.')
     if (!response.ok) return setError(data.message || 'Could not delete article.')
     setRows((current) => current.filter((article) => String(article.id) !== String(id)))
   }
 
   const filtered = rows.filter((article) => {
-    const text = `${article.title} ${article.category} ${article.status}`.toLowerCase()
+    const category = normalizeArticleCategory(article)
+    const status = normalizeArticleStatus(article)
+    const text = `${article?.title || ''} ${category} ${status}`.toLowerCase()
     return text.includes(query.trim().toLowerCase())
   })
 
@@ -72,13 +88,13 @@ export default function Articles() {
               <tr><td colSpan="7" className="empty-state">Loading articles...</td></tr>
             ) : filtered.length ? (
               filtered.map((article, index) => (
-                <tr key={String(article.id)}>
+                <tr key={String(article.id ?? `${article.title}-${index}`)}>
                   <td>{index + 1}</td>
-                  <td><img src={article.image} alt="" /></td>
-                  <td className="t">{article.title}</td>
-                  <td><span className={`pill p-${article.category.toLowerCase()}`}>{article.category}</span></td>
-                  <td><span className={`pill ${article.status === 'Published' ? 'p-pub' : 'p-draft'}`}>{article.status}</span></td>
-                  <td className="d">{article.date}</td>
+                  <td><img src={article.image || ''} alt="" /></td>
+                  <td className="t">{article.title || 'Untitled article'}</td>
+                  <td><span className={`pill p-${normalizeArticleCategory(article).toLowerCase()}`}>{normalizeArticleCategory(article)}</span></td>
+                  <td><span className={`pill ${normalizeArticleStatus(article) === 'Published' ? 'p-pub' : 'p-draft'}`}>{normalizeArticleStatus(article)}</span></td>
+                  <td className="d">{article.date || '—'}</td>
                   <td>
                     <div className="actions">
                       <Link to={`/admin/articles/${article.id}/edit`} className="btn-blue"><Pencil size={13} /> Edit</Link>
