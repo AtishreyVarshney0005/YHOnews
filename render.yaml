@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: yhu-news-demo
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NEWS_API_KEY
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_SESSION_SECRET
+        generateValue: true

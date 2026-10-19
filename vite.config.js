@@ -182,7 +182,7 @@ function newsApiProxy(apiKey) {
 	}
 }
 
-function adminApiPlugin({ adminEmail, adminPassword, sessionSecret }) {
+function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv = [] }) {
 	const storageFile = path.resolve(process.cwd(), 'data/articles.json')
 	const allowedCategories = new Set(['Business', 'Technology', 'Sports', 'Entertainment', 'Education', 'Lifestyle'])
 	let writeQueue = Promise.resolve()
@@ -366,7 +366,10 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret }) {
 		}
 	}
 
-	const install = (server) => { server.middlewares.use(handle) }
+	const install = (server) => {
+		if (requiredEnv.length) throw new Error(`Missing required production environment variables: ${requiredEnv.join(', ')}`)
+		server.middlewares.use(handle)
+	}
 	return { name: 'admin-articles-api', configureServer: install, configurePreviewServer: install }
 }
 
@@ -380,6 +383,9 @@ export default defineConfig(({ mode }) => {
 				adminEmail: env.ADMIN_EMAIL || 'yhoindia@gmail.com',
 				adminPassword: env.ADMIN_PASSWORD || 'Uttarpradesh@123',
 				sessionSecret: env.ADMIN_SESSION_SECRET || randomBytes(32).toString('hex'),
+				requiredEnv: mode === 'production'
+					? ['NEWS_API_KEY', 'ADMIN_EMAIL', 'ADMIN_PASSWORD', 'ADMIN_SESSION_SECRET'].filter((name) => !env[name])
+					: [],
 			}),
 		],
 	}
