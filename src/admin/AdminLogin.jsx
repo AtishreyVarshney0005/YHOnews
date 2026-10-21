@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { LockKeyhole, LogIn } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import Logo from '../components/Logo.jsx'
+import { readApiResponse } from './api.js'
 
 const ADMIN_SESSION_KEY = 'yhu_admin_authenticated'
 
@@ -31,8 +32,7 @@ export default function AdminLogin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.message || 'Unable to sign in.')
+      await readApiResponse(response, 'Unable to sign in.')
 
       sessionStorage.setItem(ADMIN_SESSION_KEY, 'true')
       const destination = location.state?.from

@@ -1,17 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react'
-
-const readJsonResponse = async (response, fallbackMessage) => {
-  const text = await response.text()
-  if (!text) return {}
-
-  try {
-    return JSON.parse(text)
-  } catch {
-    throw new Error(fallbackMessage)
-  }
-}
+import { readApiResponse } from './api.js'
 
 const normalizeArticleCategory = (article) => String(article?.category || 'Uncategorized').trim() || 'Uncategorized'
 const normalizeArticleStatus = (article) => String(article?.status || 'Draft').trim() || 'Draft'
@@ -26,8 +16,7 @@ export default function Articles() {
     let active = true
     fetch('/api/admin/articles')
       .then(async (response) => {
-        const data = await readJsonResponse(response, 'Could not load articles.')
-        if (!response.ok) throw new Error(data.message || 'Could not load articles.')
+        const data = await readApiResponse(response, 'Could not load articles.')
         if (active) setRows(Array.isArray(data.articles) ? data.articles : [])
       })
       .catch((loadError) => { if (active) setError(loadError.message) })
@@ -38,8 +27,12 @@ export default function Articles() {
   const remove = async (id) => {
     if (!window.confirm('Delete this article? This cannot be undone.')) return
     const response = await fetch(`/api/admin/articles/${encodeURIComponent(id)}`, { method: 'DELETE' })
-    const data = await readJsonResponse(response, 'Could not delete article.')
-    if (!response.ok) return setError(data.message || 'Could not delete article.')
+    try {
+      await readApiResponse(response, 'Could not delete article.')
+    } catch (deleteError) {
+      setError(deleteError.message)
+      return
+    }
     setRows((current) => current.filter((article) => String(article.id) !== String(id)))
   }
 

@@ -235,6 +235,9 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv 
 	const handle = async (request, response, next) => {
 		const url = new URL(request.url || '/', 'http://localhost')
 		const { pathname } = url
+		if (pathname === '/api/health' && request.method === 'GET') {
+			return sendJson(response, 200, { status: 'ok' })
+		}
 		const publicCollection = pathname === '/api/articles'
 		const publicItem = pathname.match(/^\/api\/articles\/([^/]+)$/)
 		const publicImage = pathname.match(/^\/api\/articles\/([^/]+)\/image$/)

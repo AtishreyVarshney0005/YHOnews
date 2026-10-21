@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FileText, CheckCircle2, FilePenLine, Tags, Plus, Pencil, Trash2 } from 'lucide-react'
+import { readApiResponse } from './api.js'
 
 export default function Dashboard() {
   const [rows, setRows] = useState([])
@@ -10,8 +11,7 @@ export default function Dashboard() {
     let active = true
     fetch('/api/admin/articles')
       .then(async (response) => {
-        const data = await response.json()
-        if (!response.ok) throw new Error(data.message || 'Could not load articles.')
+        const data = await readApiResponse(response, 'Could not load articles.')
         if (active) setRows(data.articles)
       })
       .catch((loadError) => { if (active) setError(loadError.message) })
@@ -21,8 +21,12 @@ export default function Dashboard() {
   const remove = async (id) => {
     if (!window.confirm('Delete this article? This cannot be undone.')) return
     const response = await fetch(`/api/admin/articles/${encodeURIComponent(id)}`, { method: 'DELETE' })
-    const data = await response.json()
-    if (!response.ok) return setError(data.message || 'Could not delete article.')
+    try {
+      await readApiResponse(response, 'Could not delete article.')
+    } catch (deleteError) {
+      setError(deleteError.message)
+      return
+    }
     setRows((current) => current.filter((article) => article.id !== id))
   }
 

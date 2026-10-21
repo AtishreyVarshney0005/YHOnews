@@ -192,6 +192,10 @@ export default async function handler(request, response) {
     const publicImage = pathname.match(/^\/api\/articles\/([^/]+)\/image$/)
     const adminArticles = pathname.match(/^\/api\/admin\/articles(?:\/([^/]+))?$/)
 
+    if (pathname === '/api/health' && request.method === 'GET') {
+      return sendJson(response, 200, { status: 'ok' })
+    }
+
     if (publicImage && request.method === 'GET') {
       const image = await readPublishedArticleImage(decodeURIComponent(publicImage[1]))
       return image ? sendImage(response, image) : sendJson(response, 404, { message: 'Article image not found.' })

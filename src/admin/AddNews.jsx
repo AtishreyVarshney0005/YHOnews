@@ -5,6 +5,7 @@ import {
   List, ListOrdered, AlignLeft, AlignCenter, AlignRight, AlignJustify, Undo2, Redo2,
 } from 'lucide-react'
 import { CATEGORIES, sanitizeArticleContent } from '../data.js'
+import { readApiResponse } from './api.js'
 
 const AUTHORS = ['Admin', 'Editorial Desk', 'Staff Reporter']
 const MAX_BYTES = 2 * 1024 * 1024
@@ -45,8 +46,7 @@ export default function AddNews() {
     let active = true
     fetch('/api/admin/articles')
       .then(async (response) => {
-        const data = await response.json()
-        if (!response.ok) throw new Error(data.message || 'Could not load article.')
+        const data = await readApiResponse(response, 'Could not load article.')
         const article = data.articles.find((item) => String(item.id) === id)
         if (active && article) {
           setExistingArticle(article)
@@ -117,8 +117,7 @@ export default function AddNews() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.message || 'Could not save article.')
+      await readApiResponse(response, 'Could not save article.')
       navigate('/admin/articles')
     } catch (error) {
       setSaveError(error.message || 'Could not save article.')
