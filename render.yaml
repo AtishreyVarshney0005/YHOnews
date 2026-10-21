@@ -1,12 +1,13 @@
 services:
   - type: web
-    name: yhu-news-demo
+    name: yho-news
     runtime: node
     plan: free
     buildCommand: npm ci && npm run build
     startCommand: npm run start
+    healthCheckPath: /
     envVars:
-      - key: NEWS_API_KEY
+      - key: DATABASE_URL
         sync: false
       - key: ADMIN_EMAIL
         sync: false

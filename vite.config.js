@@ -1,190 +1,14 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
-import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-
-const TOPICS = [
-	{ category: 'Sports', pattern: /\b(sports?|cricket|football|tennis|hockey|olympics?|ipl|f1|formula 1|athlete|tournament|match|world cup|championship|league)\b/i },
-	{ category: 'Entertainment', pattern: /\b(entertainment|film|movie|bollywood|actor|actress|music|album|concert|ott|streaming|netflix|cinema|celebrity|singer|box office|trailer)\b/i },
-	{ category: 'Education', pattern: /\b(education|school|college|university|exam|student|teacher|scholarship|campus|classroom|admission|curriculum|cbse|neet|jee)\b/i },
-	{ category: 'Lifestyle', pattern: /\b(lifestyle|fashion|travel|food|wellness|diet|recipe|restaurant|beauty|fitness|nutrition|vegetarian|yoga|skincare|home decor)\b/i },
-	{ category: 'Technology', pattern: /\b(technology|tech|artificial intelligence|ai|software|apps?|cyber|digital|internet|smartphones?|chips?|data centers?|robotics?|computer|semiconductor)\b/i },
-	{ category: 'Business', pattern: /\b(business|markets?|economy|finance|financial|banks?|stocks?|trade|companies|corporate|industry|investments?|investors?|startups?|revenue|earnings|ipo|inflation|rupee|rbi|gdp|exports?|imports?|merger|acquisition)\b/i },
-]
-
-const INDIA_SEARCH_QUERY = 'India AND (sports OR cricket OR football OR tennis OR hockey OR entertainment OR film OR Bollywood OR actor OR school OR university OR education OR lifestyle OR fashion OR wellness OR technology OR software OR cybersecurity OR artificial intelligence OR business OR markets OR economy OR finance OR stocks OR rupee)'
-const INDIA_NEWS_DOMAINS = [
-	'aajtak.in', 'abplive.com', 'business-standard.com', 'deccanherald.com',
-	'economictimes.indiatimes.com', 'financialexpress.com', 'hindustantimes.com',
-	'indianexpress.com', 'indiatoday.in', 'livemint.com', 'moneycontrol.com',
-	'ndtv.com', 'newindianexpress.com', 'news18.com', 'pib.gov.in',
-	'scroll.in', 'thehindu.com', 'thehindubusinessline.com', 'theprint.in',
-	'timesofindia.indiatimes.com',
-]
-
-function articleCategory(article) {
-	const text = `${article.title || ''} ${article.description || ''}`
-	return TOPICS.find(({ pattern }) => pattern.test(text))?.category
-}
-
-function isIndiaPublisher(url) {
-	try {
-		const hostname = new URL(url).hostname.toLowerCase()
-		return INDIA_NEWS_DOMAINS.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`))
-	} catch {
-		return false
-	}
-}
-
-const hindiTranslationCache = new Map()
-
-async function translateTextToHindi(text) {
-	if (hindiTranslationCache.has(text)) return hindiTranslationCache.get(text)
-
-	const params = new URLSearchParams({ q: text, langpair: 'en|hi' })
-	const controller = new AbortController()
-	const timeout = setTimeout(() => controller.abort(), 15000)
-	try {
-		const response = await fetch(`https://api.mymemory.translated.net/get?${params}`, { signal: controller.signal })
-		if (!response.ok) throw new Error('Translation service unavailable')
-		const payload = await response.json()
-		const translated = payload.responseStatus === 200 ? payload.responseData?.translatedText || '' : ''
-		if (!translated) throw new Error('Translation response was empty')
-		if (hindiTranslationCache.size >= 300) hindiTranslationCache.delete(hindiTranslationCache.keys().next().value)
-		hindiTranslationCache.set(text, translated)
-		return translated
-	} finally {
-		clearTimeout(timeout)
-	}
-}
-
-function splitTranslationText(text) {
-	const chunks = []
-	let remaining = text.trim()
-	while (remaining.length > 450) {
-		const sentenceEnd = Math.max(remaining.lastIndexOf('. ', 450), remaining.lastIndexOf('! ', 450), remaining.lastIndexOf('? ', 450))
-		const splitAt = sentenceEnd >= 250 ? sentenceEnd + 1 : remaining.lastIndexOf(' ', 450)
-		const boundary = splitAt > 0 ? splitAt : 450
-		chunks.push(remaining.slice(0, boundary).trim())
-		remaining = remaining.slice(boundary).trim()
-	}
-	if (remaining) chunks.push(remaining)
-	return chunks
-}
-
-async function translateTextsToHindi(texts) {
-	const translations = new Array(texts.length)
-	let nextIndex = 0
-	const workers = Array.from({ length: Math.min(3, texts.length) }, async () => {
-		while (nextIndex < texts.length) {
-			const index = nextIndex++
-			const chunks = splitTranslationText(texts[index])
-			const translatedChunks = []
-			for (const chunk of chunks) translatedChunks.push(await translateTextToHindi(chunk))
-			translations[index] = translatedChunks.join(' ')
-		}
-	})
-	await Promise.all(workers)
-	return translations
-}
-
-function newsApiProxy(apiKey) {
-	let cachedNews = ''
-	let cacheExpiresAt = 0
-	let cachedStatus = 200
-	let pendingNews = null
-	const cacheDuration = 30 * 60 * 1000
-
-	const middleware = async (request, response) => {
-		response.setHeader('Content-Type', 'application/json')
-
-		if (request.method !== 'GET') {
-			response.statusCode = 405
-			response.end(JSON.stringify({ status: 'error', message: 'Method not allowed' }))
-			return
-		}
-
-		if (!apiKey) {
-			response.statusCode = 500
-			response.end(JSON.stringify({ status: 'error', message: 'NEWS_API_KEY is not configured' }))
-			return
-		}
-
-		if (cachedNews && Date.now() < cacheExpiresAt) {
-			response.statusCode = cachedStatus
-			response.setHeader('Cache-Control', 'private, max-age=1800')
-			response.end(cachedNews)
-			return
-		}
-
-		if (!pendingNews) {
-			pendingNews = (async () => {
-				try {
-					const from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-					const params = new URLSearchParams({
-						q: INDIA_SEARCH_QUERY,
-						language: 'en',
-						from,
-						sortBy: 'publishedAt',
-						pageSize: '100',
-						domains: INDIA_NEWS_DOMAINS.join(','),
-					})
-					const upstream = await fetch(`https://newsapi.org/v2/everything?${params}`, {
-						headers: { 'X-Api-Key': apiKey },
-					})
-					const newsResponse = await upstream.json()
-					if (!upstream.ok || newsResponse.status !== 'ok') throw new Error(newsResponse.message || 'News request failed')
-
-					const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
-					const uniqueArticles = new Map()
-					for (const article of newsResponse.articles || []) {
-						const category = articleCategory(article)
-						const publishedAt = new Date(article.publishedAt).getTime()
-						if (!category || !article.url || !isIndiaPublisher(article.url) || article.url.includes('access.workspace.google.com/remediate') || !Number.isFinite(publishedAt) || publishedAt < cutoff) continue
-						if (!uniqueArticles.has(article.url)) uniqueArticles.set(article.url, { ...article, category })
-					}
-
-					const body = JSON.stringify({
-						status: 'ok',
-						totalResults: uniqueArticles.size,
-						articles: [...uniqueArticles.values()].sort((first, second) => new Date(second.publishedAt) - new Date(first.publishedAt)),
-					})
-					cachedNews = body
-					cacheExpiresAt = Date.now() + cacheDuration
-					cachedStatus = 200
-					return { status: 200, body }
-				} catch (error) {
-					const body = JSON.stringify({ status: 'error', message: error.message || 'Unable to retrieve category news' })
-					cachedNews = body
-					cacheExpiresAt = Date.now() + cacheDuration
-					cachedStatus = 502
-					return { status: 502, body }
-				}
-			})()
-		}
-
-		const result = await pendingNews
-		pendingNews = null
-		response.statusCode = result.status
-		if (result.status < 400) response.setHeader('Cache-Control', 'private, max-age=1800')
-		response.end(result.body)
-	}
-
-	return {
-		name: 'news-api-proxy',
-		configureServer(server) {
-			server.middlewares.use('/api/news', middleware)
-		},
-		configurePreviewServer(server) {
-			server.middlewares.use('/api/news', middleware)
-		},
-	}
-}
 
 function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv = [] }) {
 	const storageFile = path.resolve(process.cwd(), 'data/articles.json')
 	const allowedCategories = new Set(['Business', 'Technology', 'Sports', 'Entertainment', 'Education', 'Lifestyle'])
+	let database
+	let databaseReady
 	let writeQueue = Promise.resolve()
 
 	const sendJson = (response, status, body, headers = {}) => {
@@ -195,7 +19,35 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv 
 		response.end(JSON.stringify(body))
 	}
 
-	const readArticles = async () => {
+	const sendImage = (response, image) => {
+		const match = /^data:(image\/(?:jpeg|png|webp));base64,([a-z0-9+/=\s]+)$/i.exec(String(image || ''))
+		if (!match) return sendJson(response, 404, { message: 'Article image not found.' })
+		const body = Buffer.from(match[2], 'base64')
+		response.statusCode = 200
+		response.setHeader('Content-Type', match[1])
+		response.setHeader('Content-Length', body.length)
+		response.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable')
+		response.setHeader('X-Content-Type-Options', 'nosniff')
+		response.end(body)
+	}
+
+	const publicImageUrl = (id, image, updatedAt) => String(image || '').startsWith('data:image/')
+		? `/api/articles/${encodeURIComponent(id)}/image?v=${encodeURIComponent(updatedAt || '1')}`
+		: image || ''
+
+	const toPublicArticle = (article) => {
+		const content = String(article.content || '').trim()
+		const contentText = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+		const { content: _content, image, ...details } = article
+		return {
+			...details,
+			image: publicImageUrl(article.id, image, article.updatedAt || article.createdAt),
+			summary: article.summary || article.meta?.description || contentText.slice(0, 280),
+			read: Number(article.read) || Math.max(1, Math.ceil(contentText.split(/\s+/).filter(Boolean).length / 200)),
+		}
+	}
+
+	const readLocalArticles = async () => {
 		try {
 			return JSON.parse(await readFile(storageFile, 'utf8'))
 		} catch (error) {
@@ -204,7 +56,109 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv 
 		}
 	}
 
-	const writeArticles = async (articles) => {
+	const getDatabase = async () => {
+		if (!process.env.DATABASE_URL) return null
+		if (!database) {
+			const { neon } = await import('@neondatabase/serverless')
+			database = neon(process.env.DATABASE_URL)
+		}
+		if (!databaseReady) {
+			databaseReady = (async () => {
+				await database`CREATE TABLE IF NOT EXISTS yho_news_articles (
+					id TEXT PRIMARY KEY,
+					data JSONB NOT NULL,
+					status TEXT NOT NULL,
+					category TEXT NOT NULL,
+					published_at TIMESTAMPTZ,
+					updated_at TIMESTAMPTZ NOT NULL,
+					view_count INTEGER NOT NULL DEFAULT 0
+				)`
+				await database`ALTER TABLE yho_news_articles ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NULL DEFAULT 0`
+				const [{ count }] = await database`SELECT COUNT(*)::int AS count FROM yho_news_articles`
+				if (count === 0) {
+					const articles = await readLocalArticles()
+					for (let index = 0; index < articles.length; index += 8) {
+						const batch = articles.slice(index, index + 8).filter((article) => article?.id)
+						await Promise.all(batch.map((article) => database`INSERT INTO yho_news_articles (id, data, status, category, published_at, updated_at)
+							VALUES (${article.id}, ${JSON.stringify(article)}::jsonb, ${article.status || 'Published'}, ${article.category || ''},
+								${article.publishedAt || null}, ${article.updatedAt || article.createdAt || new Date().toISOString()})
+							ON CONFLICT (id) DO NOTHING`))
+					}
+				}
+			})().catch((error) => {
+				databaseReady = null
+				throw error
+			})
+		}
+		await databaseReady
+		return database
+	}
+
+	const readArticles = async () => {
+		const sql = await getDatabase()
+		if (!sql) return readLocalArticles()
+		const rows = await sql`SELECT data, view_count FROM yho_news_articles ORDER BY updated_at DESC`
+		return rows.map(({ data, view_count }) => ({ ...data, viewCount: view_count }))
+	}
+
+	const readPublishedArticles = async () => {
+		const sql = await getDatabase()
+		if (!sql) {
+			return (await readLocalArticles())
+				.filter((article) => article.status === 'Published' && allowedCategories.has(article.category))
+				.map(toPublicArticle)
+		}
+		const rows = await sql`SELECT data - 'image' AS data, data->>'image' AS image, view_count
+			FROM yho_news_articles
+			WHERE status = 'Published' AND category = ANY(${[...allowedCategories]})
+			ORDER BY updated_at DESC`
+		return rows.map(({ data, image, view_count }) => toPublicArticle({ ...data, viewCount: view_count, image }))
+	}
+
+	const readPublishedArticleImage = async (id) => {
+		const sql = await getDatabase()
+		if (sql) {
+			const rows = await sql`SELECT data->>'image' AS image FROM yho_news_articles
+				WHERE id = ${id} AND status = 'Published' AND category = ANY(${[...allowedCategories]})`
+			return rows[0]?.image || null
+		}
+		const article = (await readLocalArticles()).find((item) => item.id === id && item.status === 'Published' && allowedCategories.has(item.category))
+		return article?.image || null
+	}
+
+	const readPublishedArticleAndCountView = async (id) => {
+		const sql = await getDatabase()
+		if (sql) {
+			const rows = await sql`UPDATE yho_news_articles
+				SET view_count = view_count + 1
+				WHERE id = ${id} AND status = 'Published' AND category = ANY(${[...allowedCategories]})
+				RETURNING data, view_count`
+			const row = rows[0]
+			return row ? {
+				...row.data,
+				image: publicImageUrl(row.data.id, row.data.image, row.data.updatedAt || row.data.createdAt),
+				viewCount: row.view_count,
+			} : null
+		}
+		const article = (await readLocalArticles()).find((item) => item.id === id && item.status === 'Published' && allowedCategories.has(item.category))
+		return article ? { ...article, image: publicImageUrl(article.id, article.image, article.updatedAt || article.createdAt) } : null
+	}
+
+	const writeArticles = async (articles, previous = []) => {
+		const sql = await getDatabase()
+		if (sql) {
+			const currentIds = new Set(articles.map(({ id }) => id))
+			const previousById = new Map(previous.map((article) => [article.id, article]))
+			const writes = articles.filter((article) => JSON.stringify(previousById.get(article.id)) !== JSON.stringify(article))
+			await Promise.all([
+				...previous.filter(({ id }) => !currentIds.has(id)).map(({ id }) => sql`DELETE FROM yho_news_articles WHERE id = ${id}`),
+				...writes.map((article) => sql`INSERT INTO yho_news_articles (id, data, status, category, published_at, updated_at)
+					VALUES (${article.id}, ${JSON.stringify(article)}::jsonb, ${article.status}, ${article.category}, ${article.publishedAt || null}, ${article.updatedAt})
+					ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, status = EXCLUDED.status, category = EXCLUDED.category,
+						published_at = EXCLUDED.published_at, updated_at = EXCLUDED.updated_at`),
+			])
+			return
+		}
 		await mkdir(path.dirname(storageFile), { recursive: true })
 		const tempFile = `${storageFile}.tmp`
 		await writeFile(tempFile, JSON.stringify(articles, null, 2), 'utf8')
@@ -215,7 +169,7 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv 
 		const operation = writeQueue.then(async () => {
 			const current = await readArticles()
 			const result = mutate(current)
-			if (result.write !== false) await writeArticles(result.articles)
+			if (result.write !== false) await writeArticles(result.articles, current)
 			return result.value
 		})
 		writeQueue = operation.catch(() => undefined)
@@ -238,6 +192,7 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv 
 	}
 
 	const isAuthenticated = (request) => {
+		if (!sessionSecret) return false
 		const cookie = (request.headers.cookie || '').split('; ').find((part) => part.startsWith('yhu_admin_session='))
 		if (!cookie) return false
 		const [expires, signature] = cookie.slice('yhu_admin_session='.length).split('.')
@@ -282,27 +237,29 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv 
 		const { pathname } = url
 		const publicCollection = pathname === '/api/articles'
 		const publicItem = pathname.match(/^\/api\/articles\/([^/]+)$/)
-		const translation = pathname === '/api/translate'
+		const publicImage = pathname.match(/^\/api\/articles\/([^/]+)\/image$/)
 		const adminSession = pathname === '/api/admin/session'
 		const adminLogin = pathname === '/api/admin/login'
 		const adminLogout = pathname === '/api/admin/logout'
 		const adminArticles = pathname.match(/^\/api\/admin\/articles(?:\/([^/]+))?$/)
-		if (!publicCollection && !publicItem && !translation && !adminSession && !adminLogin && !adminLogout && !adminArticles) return next()
+		if (!publicCollection && !publicItem && !publicImage && !adminSession && !adminLogin && !adminLogout && !adminArticles) return next()
 
 		try {
-			if (translation && request.method === 'POST') {
-				const { texts } = await readJson(request)
-				if (!Array.isArray(texts) || !texts.length || texts.length > 80 || texts.some((text) => typeof text !== 'string' || !text.trim() || text.length > 4000) || texts.reduce((total, text) => total + text.length, 0) > 24000) {
-					return sendJson(response, 400, { message: 'Article text is too long to translate.' })
-				}
-				return sendJson(response, 200, { translations: await translateTextsToHindi(texts) })
+			if (publicImage && request.method === 'GET') {
+				const image = await readPublishedArticleImage(decodeURIComponent(publicImage[1]))
+				return image ? sendImage(response, image) : sendJson(response, 404, { message: 'Article image not found.' })
 			}
 
 			if (adminLogin && request.method === 'POST') {
+				if (!adminEmail || !adminPassword || !sessionSecret) return sendJson(response, 503, { message: 'Admin credentials are not configured.' })
 				const credentials = await readJson(request)
 				const email = String(credentials.email || '').trim().toLowerCase()
 				const password = String(credentials.password || '')
-				if (email !== adminEmail.toLowerCase() || password !== adminPassword) return sendJson(response, 401, { message: 'Email or password is incorrect.' })
+				const suppliedEmail = Buffer.from(email)
+				const expectedEmail = Buffer.from(adminEmail.trim().toLowerCase())
+				const suppliedPassword = Buffer.from(password)
+				const expectedPassword = Buffer.from(adminPassword)
+				if (suppliedEmail.length !== expectedEmail.length || !timingSafeEqual(suppliedEmail, expectedEmail) || suppliedPassword.length !== expectedPassword.length || !timingSafeEqual(suppliedPassword, expectedPassword)) return sendJson(response, 401, { message: 'Email or password is incorrect.' })
 				const expires = String(Date.now() + 8 * 60 * 60 * 1000)
 				const signature = createHmac('sha256', sessionSecret).update(expires).digest('base64url')
 				const secure = request.socket.encrypted || request.headers['x-forwarded-proto'] === 'https' ? '; Secure' : ''
@@ -320,13 +277,14 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv 
 			}
 
 			if (publicCollection && request.method === 'GET') {
-				const articles = (await readArticles()).filter((article) => article.status === 'Published' && allowedCategories.has(article.category))
-				return sendJson(response, 200, { articles })
+				return sendJson(response, 200, {
+					articles: await readPublishedArticles(),
+				}, { 'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600' })
 			}
 
 			if (publicItem && request.method === 'GET') {
 				const id = decodeURIComponent(publicItem[1])
-				const article = (await readArticles()).find((item) => item.id === id && item.status === 'Published' && allowedCategories.has(item.category))
+				const article = await readPublishedArticleAndCountView(id)
 				return article ? sendJson(response, 200, { article }) : sendJson(response, 404, { message: 'Article not found.' })
 			}
 
@@ -378,13 +336,12 @@ export default defineConfig(({ mode }) => {
 	return {
 		plugins: [
 			react(),
-			newsApiProxy(env.NEWS_API_KEY),
 			adminApiPlugin({
-				adminEmail: env.ADMIN_EMAIL || 'yhoindia@gmail.com',
-				adminPassword: env.ADMIN_PASSWORD || 'Uttarpradesh@123',
-				sessionSecret: env.ADMIN_SESSION_SECRET || randomBytes(32).toString('hex'),
+				adminEmail: env.ADMIN_EMAIL,
+				adminPassword: env.ADMIN_PASSWORD,
+				sessionSecret: env.ADMIN_SESSION_SECRET,
 				requiredEnv: mode === 'production'
-					? ['NEWS_API_KEY', 'ADMIN_EMAIL', 'ADMIN_PASSWORD', 'ADMIN_SESSION_SECRET'].filter((name) => !env[name])
+					? ['DATABASE_URL', 'ADMIN_EMAIL', 'ADMIN_PASSWORD', 'ADMIN_SESSION_SECRET'].filter((name) => !env[name])
 					: [],
 			}),
 		],

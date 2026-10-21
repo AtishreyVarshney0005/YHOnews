@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { BarChart3, Settings, Trophy, Drama, GraduationCap, Heart, ChevronLeft, ChevronRight, Clock, User, ArrowRight } from 'lucide-react'
+import { BarChart3, Settings, Trophy, Drama, GraduationCap, Heart, ChevronLeft, ChevronRight, Clock, ArrowRight, ArrowUpRight, TrendingUp, CalendarDays, BookOpen, Radio } from 'lucide-react'
 import { SectionTitle, Row, StoryLink } from '../components/Bits.jsx'
 import NewsDateFilter from '../components/NewsDateFilter.jsx'
 import { filterArticlesByDateRange, mapPublishedArticle, normalizeNewsDateRange } from '../data.js'
@@ -13,36 +13,6 @@ const QUICK = [
   { label: 'Education', Icon: GraduationCap, color: '#245bd5', to: '/category/education' },
   { label: 'Lifestyle', Icon: Heart, color: '#df2434', to: '/category/lifestyle' },
 ]
-
-const ALLOWED_CATEGORIES = new Set(['Business', 'Technology', 'Sports', 'Entertainment', 'Education', 'Lifestyle'])
-
-function formatAge(publishedAt) {
-  const elapsed = Math.max(0, Date.now() - new Date(publishedAt).getTime())
-  const minutes = Math.floor(elapsed / 60000)
-  if (minutes < 1) return 'Just now'
-  if (minutes < 60) return `${minutes} min ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours} hr ago`
-  return `${Math.floor(hours / 24)} days ago`
-}
-
-function mapArticle(article, index) {
-  const publishedAt = article.publishedAt
-  const text = article.description || article.content?.replace(/\s*\[\+\d+ chars\]$/, '') || ''
-  return {
-    id: `${publishedAt}-${index}`,
-    title: article.title,
-    category: article.category,
-    ago: formatAge(publishedAt),
-    date: new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }).format(new Date(publishedAt)),
-    read: Math.max(1, Math.ceil(text.split(/\s+/).filter(Boolean).length / 200)),
-    summary: text,
-    image: article.urlToImage || '',
-    url: article.url,
-    source: article.source?.name || 'News source',
-    publishedAt,
-  }
-}
 
 function NewsCard({ article }) {
   return (
@@ -64,7 +34,6 @@ export default function Home() {
   const dateRange = normalizeNewsDateRange(searchParams.get('range'))
   const [allArticles, setAllArticles] = useState([])
   const [index, setIndex] = useState(0)
-  const [now, setNow] = useState(() => new Date())
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
 
@@ -72,37 +41,14 @@ export default function Home() {
     let active = true
     const loadNews = async () => {
       try {
-        const [newsResult, publishedResult] = await Promise.allSettled([
-          fetch('/api/news').then(async (response) => {
-            const data = await response.json()
-            if (!response.ok || data.status !== 'ok') throw new Error(data.message || 'Category headlines are temporarily unavailable.')
-            return data.articles || []
-          }),
-          fetch('/api/articles').then(async (response) => {
-            const data = await response.json()
-            if (!response.ok) throw new Error(data.message || 'Published articles are temporarily unavailable.')
-            return data.articles || []
-          }),
-        ])
-        const errors = [newsResult, publishedResult]
-          .filter((result) => result.status === 'rejected')
-          .map((result) => result.reason.message || 'Some news could not be loaded.')
-        if (newsResult.status === 'rejected' && publishedResult.status === 'rejected') {
-          throw new Error(errors.join(' '))
-        }
-
-        const currentArticles = (newsResult.status === 'fulfilled' ? newsResult.value : [])
-          .filter((article) => ALLOWED_CATEGORIES.has(article.category) && article.title && article.title !== '[Removed]' && article.title.toLowerCase() !== 'google news' && article.url && !article.url.includes('access.workspace.google.com/remediate') && article.publishedAt && Number.isFinite(new Date(article.publishedAt).getTime()))
-          .sort((first, second) => new Date(second.publishedAt) - new Date(first.publishedAt))
-          .map(mapArticle)
-        const publishedArticles = (publishedResult.status === 'fulfilled' ? publishedResult.value : [])
-          .filter((article) => article.status === 'Published' && ALLOWED_CATEGORIES.has(article.category))
-          .map(mapPublishedArticle)
+        const response = await fetch('/api/articles')
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.message || 'Published articles are temporarily unavailable.')
+        const publishedArticles = (data.articles || []).map(mapPublishedArticle)
         if (active) {
-          const availableArticles = [...currentArticles, ...publishedArticles]
-          setAllArticles(availableArticles)
-          setError(errors.join(' '))
-          setStatus(errors.length ? (availableArticles.length ? 'partial' : 'error') : 'ready')
+          setAllArticles(publishedArticles)
+          setError('')
+          setStatus('ready')
         }
       } catch (requestError) {
         if (active) {
@@ -121,6 +67,9 @@ export default function Home() {
   }, [])
 
   const articles = filterArticlesByDateRange(allArticles, dateRange)
+  const popularArticles = [...allArticles]
+    .sort((first, second) => (Number(second.viewCount) || 0) - (Number(first.viewCount) || 0))
+    .slice(0, 5)
   const updateDateRange = (range) => {
     const nextParams = new URLSearchParams(searchParams)
     nextParams.set('range', range)
@@ -131,11 +80,6 @@ export default function Home() {
     setIndex(0)
   }, [dateRange])
 
-  useEffect(() => {
-    const clock = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(clock)
-  }, [])
-
   const slides = articles.slice(0, 4)
   useEffect(() => {
     if (slides.length < 2) return undefined
@@ -144,10 +88,6 @@ export default function Home() {
   }, [slides.length])
 
   const slide = slides[index]
-  const liveTime = new Intl.DateTimeFormat('en-IN', {
-    weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, timeZone: 'Asia/Kolkata',
-  }).format(now)
   const latest = articles.slice(0, 6)
   const moreNews = articles.slice(6, 12)
   const interestSections = QUICK.map(({ label, to }) => ({
@@ -161,7 +101,26 @@ export default function Home() {
       <div className="card home-date-filter">
         <NewsDateFilter value={dateRange} onChange={updateDateRange} />
       </div>
-      {status === 'partial' && <p className="muted news-list-status" role="status">Live headlines are temporarily unavailable. Showing available published stories.</p>}
+      {articles.length > 0 && (
+        <nav className="headline-strip" aria-label="Top headlines">
+          <div className="headline-strip-label">
+            <TrendingUp size={18} aria-hidden="true" />
+            <span>Top Headlines</span>
+          </div>
+          <div className="headline-strip-list">
+            {popularArticles.map((article, headlineIndex) => (
+              <StoryLink key={article.id} article={article} className="headline-strip-item">
+                <span className="headline-strip-number">{String(headlineIndex + 1).padStart(2, '0')}</span>
+                <span className="headline-strip-copy">
+                  <small>{article.category} · {Number(article.viewCount) || 0} views</small>
+                  <b>{article.title}</b>
+                </span>
+                <ArrowUpRight size={16} aria-hidden="true" />
+              </StoryLink>
+            ))}
+          </div>
+        </nav>
+      )}
       <div className="home-top">
         <div>
           <section
@@ -176,12 +135,20 @@ export default function Home() {
             </>}
             <div className="hero-body">
               {slide ? <>
-                <span className="tag-red">{slide.category} · {slide.source}</span>
+                <div className="hero-kicker">
+                  <span className="hero-lead-label">Lead story</span>
+                  <span className="tag-red">{slide.category}</span>
+                  <span className="hero-source">{slide.source}</span>
+                </div>
                 <h1>{slide.title}</h1>
                 {slide.summary && <p>{slide.summary}</p>}
                 <div className="hero-foot">
-                  <span><Clock size={14} /> Live · {liveTime} IST &nbsp; <User size={14} /> {slide.read} min read</span>
-                  <StoryLink article={slide} className="btn-outline">Read More <ArrowRight size={16} /></StoryLink>
+                  <span className="hero-meta">
+                    <span><CalendarDays size={14} /> {slide.date}</span>
+                    <i aria-hidden="true" />
+                    <span><BookOpen size={14} /> {slide.read} min read</span>
+                  </span>
+                  <StoryLink article={slide} className="btn-outline">Read full story <ArrowRight size={16} /></StoryLink>
                 </div>
                 {slides.length > 1 && <div className="dots">
                   {slides.map((article, dot) => <button key={article.id} className={dot === index ? 'on' : ''} onClick={() => setIndex(dot)} aria-label={`Slide ${dot + 1}`} />)}
@@ -197,6 +164,20 @@ export default function Home() {
               <Link key={label} to={`${to}?range=${dateRange}`}><Icon size={26} color={color} /><span>{label}</span></Link>
             ))}
           </div>
+          <section className="yho-spotlight" aria-label="About YHO News">
+            <div className="yho-spotlight-mark" aria-hidden="true">
+              <span className="yho-signal yho-signal-one" />
+              <span className="yho-signal yho-signal-two" />
+              <span className="yho-signal yho-signal-three" />
+              <Radio size={23} />
+            </div>
+            <div className="yho-spotlight-copy">
+              <span className="yho-spotlight-kicker">YOUR WORLD, YOUR NEWS</span>
+              <h2>Stay curious. Stay informed.</h2>
+              <p>Explore the stories shaping your world, all in one place.</p>
+            </div>
+            <Link to="/about" className="yho-spotlight-link">Discover YHO <ArrowRight size={16} /></Link>
+          </section>
         </div>
 
         <aside className="card top-stories">

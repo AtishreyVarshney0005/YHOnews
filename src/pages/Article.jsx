@@ -1,15 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { Home, Calendar, Clock, Tag, Languages, RefreshCw } from 'lucide-react'
+import { Home, Calendar, Clock, Tag } from 'lucide-react'
 import { mapPublishedArticle } from '../data.js'
 import Socials from '../components/Socials.jsx'
-
-function getTranslationBlocks(contentHtml) {
-  const parsed = new DOMParser().parseFromString(contentHtml, 'text/html')
-  return [...parsed.body.querySelectorAll('h2, h3, p, blockquote, li')]
-    .map((element) => ({ type: ['H2', 'H3'].includes(element.tagName) ? 'heading' : 'paragraph', text: element.textContent.trim() }))
-    .filter((block) => block.text)
-}
 
 export default function Article() {
   const { id } = useParams()
@@ -18,9 +11,6 @@ export default function Article() {
   const searchRangeQuery = searchParams.get('range') ? `&range=${encodeURIComponent(searchParams.get('range'))}` : ''
   const [publishedArticle, setPublishedArticle] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [translation, setTranslation] = useState(null)
-  const [translationStatus, setTranslationStatus] = useState('loading')
-  const [translationAttempt, setTranslationAttempt] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -37,33 +27,6 @@ export default function Article() {
   }, [id])
 
   const a = publishedArticle
-
-  useEffect(() => {
-    if (!a) return
-    const controller = new AbortController()
-    const blocks = getTranslationBlocks(a.contentHtml)
-    setTranslation(null)
-    setTranslationStatus('loading')
-
-    fetch('/api/translate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texts: [a.title, ...blocks.map((block) => block.text)] }),
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        const data = await response.json()
-        if (!response.ok) throw new Error(data.message || 'Translation failed.')
-        if (data.translations?.length !== blocks.length + 1) throw new Error('Translation failed.')
-        setTranslation({ title: data.translations[0], blocks: blocks.map((block, index) => ({ ...block, text: data.translations[index + 1] })) })
-        setTranslationStatus('ready')
-      })
-      .catch((error) => {
-        if (error.name !== 'AbortError') setTranslationStatus('error')
-      })
-
-    return () => controller.abort()
-  }, [a, translationAttempt])
 
   if (!a && loading) return <p className="empty card">Loading article...</p>
   if (!a) return <p className="empty card">Article not found. <Link to={`/${rangeQuery}`}>Back to homepage</Link></p>
@@ -99,26 +62,6 @@ export default function Article() {
       </article>
 
       <aside>
-        <section className="card hindi-translation" lang="hi">
-          <h2><Languages size={19} /> हिंदी में खबर</h2>
-          {translationStatus === 'loading' && <p className="translation-message">खबर का हिंदी अनुवाद तैयार हो रहा है...</p>}
-          {translationStatus === 'error' && (
-            <div className="translation-error">
-              <p>अनुवाद अभी उपलब्ध नहीं है।</p>
-              <button type="button" className="translation-retry" onClick={() => setTranslationAttempt((attempt) => attempt + 1)}>
-                <RefreshCw size={14} /> फिर कोशिश करें
-              </button>
-            </div>
-          )}
-          {translation && (
-            <div className="hindi-copy">
-              <h3>{translation.title}</h3>
-              {translation.blocks.map((block, index) => block.type === 'heading'
-                ? <h4 key={index}>{block.text}</h4>
-                : <p key={index}>{block.text}</p>)}
-            </div>
-          )}
-        </section>
         <div className="card share-box">
           <h3>Share This Article</h3>
           <Socials whatsappShareUrl={window.location.href} copyLinkUrl={window.location.href} />
