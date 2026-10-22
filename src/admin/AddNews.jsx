@@ -4,13 +4,13 @@ import {
   Image as ImageIcon, Save, ChevronDown, Bold, Italic, Underline, Strikethrough, Link2, Quote,
   List, ListOrdered, AlignLeft, AlignCenter, AlignRight, AlignJustify, Undo2, Redo2,
 } from 'lucide-react'
-import { CATEGORIES, sanitizeArticleContent } from '../data.js'
+import { PUBLISHABLE_CATEGORIES, sanitizeArticleContent } from '../data.js'
 import { readApiResponse } from './api.js'
 
 const AUTHORS = ['Admin', 'Editorial Desk', 'Staff Reporter']
 const MAX_BYTES = 2 * 1024 * 1024
 const MAX_META_DESCRIPTION_LENGTH = 150
-const ADD_NEWS_CATEGORIES = CATEGORIES.filter((category) => !['India', 'World', 'Politics', 'Health'].includes(category))
+const ADD_NEWS_CATEGORIES = PUBLISHABLE_CATEGORIES
 
 function getContentStats(text) {
   const content = text.trim()

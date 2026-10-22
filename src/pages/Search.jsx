@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Calendar, Clock } from 'lucide-react'
-import { CATEGORIES, filterArticlesByDateRange, slugify, mapPublishedArticle, normalizeNewsDateRange } from '../data.js'
+import { PUBLISHABLE_CATEGORIES, filterArticlesByDateRange, slugify, mapPublishedArticle, normalizeNewsDateRange } from '../data.js'
 import NewsDateFilter from '../components/NewsDateFilter.jsx'
 import PageMeta from '../components/PageMeta.jsx'
 
-const FILTERS = CATEGORIES.filter((category) => !['India', 'World', 'Politics', 'Health'].includes(category))
+const FILTERS = PUBLISHABLE_CATEGORIES
 
 export default function Search() {
   const [params, setParams] = useSearchParams()

@@ -5,7 +5,7 @@ import { createSitemapXml } from '../server/sitemap.js'
 
 const require = createRequire(import.meta.url)
 const seedArticles = require('../data/articles.json')
-const ARTICLE_CATEGORIES = new Set(['Business', 'Technology', 'Sports', 'Entertainment', 'Education', 'Lifestyle'])
+const ARTICLE_CATEGORIES = new Set(['India', 'World', 'Cities', 'Movies', 'Election', 'Business', 'Technology', 'Sports', 'Entertainment', 'Education', 'Lifestyle'])
 let database
 let databaseReady
 

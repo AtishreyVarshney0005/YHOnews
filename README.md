@@ -10,6 +10,7 @@ npm run preview
 Routes: `/` home, `/category/:slug`, `/article/:id`, `/search?q=`, `/about`, `/contact`, `/privacy`, `/terms`, `/admin`, `/admin/add`
 
 - The homepage and categories display stories written and published manually through the admin panel. No external News API or weather API key is needed.
+- The navigation and admin publishing categories include India, World, Cities, Movies and Election, alongside business, technology, sports, entertainment, education and lifestyle.
 - Admin login, article management, and image delivery use the project's internal API. Production article storage uses Neon Postgres; local development uses `data/articles.json`.
 - The article sidebar provides a Hindi translation using MyMemory, with Google Translate as a fallback when MyMemory is unavailable; only the article currently being viewed is sent to the translation provider. Set `MYMEMORY_EMAIL` to a contact email you consent to share with MyMemory to increase its daily translation quota.
 - Public pages load as separate JavaScript chunks, use page-specific metadata and article structured data, and reveal content as readers scroll. Scroll effects respect reduced-motion preferences.

@@ -3,10 +3,20 @@ import { Link, NavLink, Outlet, useNavigate, useSearchParams, useLocation } from
 import { Search, Calendar, Clock, Menu, X } from 'lucide-react'
 import Logo from './Logo.jsx'
 import Socials from './Socials.jsx'
-import { CATEGORIES, slugify } from '../data.js'
+import { PUBLISHABLE_CATEGORIES, slugify } from '../data.js'
 import useScrollReveal from '../hooks/useScrollReveal.js'
 
-const NAV_CATEGORIES = CATEGORIES.filter((category) => !['India', 'World', 'Politics', 'Health'].includes(category))
+const NAV_CATEGORIES = PUBLISHABLE_CATEGORIES
+const NAV_ITEMS = [
+  { label: 'Home', to: '/', home: true, preserveRange: true },
+  ...NAV_CATEGORIES.map((category) => ({
+    label: category,
+    to: `/category/${slugify(category)}`,
+    preserveRange: true,
+  })).sort((first, second) => first.label.localeCompare(second.label)),
+  { label: 'About Us', to: '/about' },
+  { label: 'Contact Us', to: '/contact', contact: true },
+]
 const dateFormatter = new Intl.DateTimeFormat('en-IN', {
   weekday: 'long', day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata',
 })
@@ -64,12 +74,16 @@ function Header() {
       </div>
       <nav id="main-navigation" className={`mainnav ${open ? 'open' : ''}`}>
         <div className="container navrow" onClick={() => setOpen(false)}>
-          <NavLink to={`/${rangeQuery}`} end>Home</NavLink>
-          {NAV_CATEGORIES.map((c) => (
-            <NavLink key={c} to={`/category/${slugify(c)}${rangeQuery}`}>{c}</NavLink>
+          {NAV_ITEMS.map(({ label, to, home, preserveRange, contact }) => (
+            <NavLink
+              key={label}
+              to={`${to}${preserveRange ? rangeQuery : ''}`}
+              end={home}
+              className={({ isActive }) => (contact && isActive ? 'active contact' : undefined)}
+            >
+              {label}
+            </NavLink>
           ))}
-          <NavLink to="/about">About Us</NavLink>
-          <NavLink to="/contact" className={({ isActive }) => (isActive ? 'active contact' : '')}>Contact Us</NavLink>
         </div>
       </nav>
     </header>

@@ -1,5 +1,5 @@
 const SITE_URL = (process.env.PUBLIC_SITE_URL || 'https://yhonewsindia.onrender.com').replace(/\/+$/, '')
-const CATEGORIES = ['india', 'world', 'politics', 'business', 'technology', 'sports', 'entertainment', 'education', 'health', 'lifestyle']
+const CATEGORIES = ['india', 'world', 'cities', 'movies', 'election', 'business', 'technology', 'sports', 'entertainment', 'education', 'lifestyle']
 
 const escapeXml = (value) => String(value).replace(/[<>&'"]/g, (character) => ({
   '<': '&lt;',

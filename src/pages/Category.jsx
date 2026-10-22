@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { CATEGORIES, filterArticlesByDateRange, mapPublishedArticle, normalizeNewsDateRange } from '../data.js'
+import { CATEGORIES, PUBLISHABLE_CATEGORIES, filterArticlesByDateRange, mapPublishedArticle, normalizeNewsDateRange } from '../data.js'
 import { ReadMeta } from '../components/Bits.jsx'
 import NewsDateFilter from '../components/NewsDateFilter.jsx'
 import PageMeta from '../components/PageMeta.jsx'
 import NotFound from './NotFound.jsx'
 
-const CUSTOM_CATEGORIES = new Set(['business', 'technology', 'sports', 'entertainment', 'education', 'lifestyle'])
+const PUBLISHED_CATEGORY_SLUGS = new Set(PUBLISHABLE_CATEGORIES.map((category) => category.toLowerCase()))
 
 export default function Category() {
   const { slug } = useParams()
@@ -37,7 +37,7 @@ export default function Category() {
   const dateFilteredArticles = filterArticlesByDateRange(inCat, dateRange)
   const tags = ['All', ...new Set(dateFilteredArticles.map((a) => a.tag))]
   const list = tag === 'All' ? dateFilteredArticles : dateFilteredArticles.filter((a) => a.tag === tag)
-  const pageSize = CUSTOM_CATEGORIES.has(slug) ? 20 : 6
+  const pageSize = PUBLISHED_CATEGORY_SLUGS.has(slug) ? 20 : 6
   const pageCount = Math.ceil(list.length / pageSize)
   const visible = list.slice((page - 1) * pageSize, page * pageSize)
   const updateDateRange = (range) => {
@@ -59,7 +59,7 @@ export default function Category() {
         <h1 className="accent">{name}</h1>
         <p className="muted">Latest news, trends, and updates from the world of {name.toLowerCase()}.</p>
         <NewsDateFilter value={dateRange} onChange={updateDateRange} />
-        {!CUSTOM_CATEGORIES.has(slug) && (
+        {!PUBLISHED_CATEGORY_SLUGS.has(slug) && (
           <div className="chips">
             {tags.map((t) => (
               <button key={t} className={t === tag ? 'on' : ''} aria-pressed={t === tag} onClick={() => { setTag(t); setPage(1) }}>{t}</button>

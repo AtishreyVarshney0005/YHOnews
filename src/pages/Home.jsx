@@ -1,18 +1,38 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { BarChart3, Settings, Trophy, Drama, GraduationCap, Heart, ChevronLeft, ChevronRight, Clock, ArrowRight, ArrowUpRight, TrendingUp, CalendarDays, BookOpen, Radio } from 'lucide-react'
+import { Home as HomeIcon, Info, Phone, MapPin, Film, Vote, Globe, BarChart3, Settings, Trophy, Drama, GraduationCap, Heart, ChevronLeft, ChevronRight, Clock, ArrowRight, ArrowUpRight, TrendingUp, CalendarDays, BookOpen, Radio } from 'lucide-react'
 import { SectionTitle, Row, StoryLink } from '../components/Bits.jsx'
 import NewsDateFilter from '../components/NewsDateFilter.jsx'
 import PageMeta from '../components/PageMeta.jsx'
-import { filterArticlesByDateRange, mapPublishedArticle, normalizeNewsDateRange } from '../data.js'
+import { PUBLISHABLE_CATEGORIES, filterArticlesByDateRange, mapPublishedArticle, normalizeNewsDateRange, slugify } from '../data.js'
 
+const CATEGORY_ICONS = {
+  India: Globe,
+  World: Globe,
+  Cities: MapPin,
+  Movies: Film,
+  Election: Vote,
+  Business: BarChart3,
+  Technology: Settings,
+  Sports: Trophy,
+  Entertainment: Drama,
+  Education: GraduationCap,
+  Lifestyle: Heart,
+}
 const QUICK = [
-  { label: 'Business', Icon: BarChart3, color: '#16a34a', to: '/category/business' },
-  { label: 'Technology', Icon: Settings, color: '#7c3aed', to: '/category/technology' },
-  { label: 'Sports', Icon: Trophy, color: '#f97316', to: '/category/sports' },
-  { label: 'Entertainment', Icon: Drama, color: '#e8141c', to: '/category/entertainment' },
-  { label: 'Education', Icon: GraduationCap, color: '#245bd5', to: '/category/education' },
-  { label: 'Lifestyle', Icon: Heart, color: '#df2434', to: '/category/lifestyle' },
+  { label: 'Home', Icon: HomeIcon, color: '#101c35', to: '/', home: true },
+  ...PUBLISHABLE_CATEGORIES
+    .slice()
+    .sort((first, second) => first.localeCompare(second))
+    .map((label) => ({
+      label,
+      Icon: CATEGORY_ICONS[label],
+      color: '#245bd5',
+      to: `/category/${slugify(label)}`,
+      category: true,
+    })),
+  { label: 'About Us', Icon: Info, color: '#64748b', to: '/about' },
+  { label: 'Contact Us', Icon: Phone, color: '#df2434', to: '/contact' },
 ]
 
 function NewsCard({ article }) {
@@ -174,11 +194,11 @@ export default function Home() {
             </div>
           </section>
 
-          <div className="quick card">
-            {QUICK.map(({ label, Icon, color, to }) => (
-              <Link key={label} to={`${to}?range=${dateRange}`}><Icon size={26} color={color} /><span>{label}</span></Link>
+          <nav className="quick card" aria-label="Site navigation">
+            {QUICK.map(({ label, Icon, color, to, home, category }) => (
+              <Link key={label} to={`${to}${home || category ? `?range=${dateRange}` : ''}`}><Icon size={26} color={color} /><span>{label}</span></Link>
             ))}
-          </div>
+          </nav>
           <section className="yho-spotlight" aria-label="About YHO News">
             <div className="yho-spotlight-mark" aria-hidden="true">
               <span className="yho-signal yho-signal-one" />

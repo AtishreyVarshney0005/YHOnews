@@ -1,5 +1,6 @@
 export const img = (seed, width = 600, height = 400) => `https://picsum.photos/seed/${seed}/${width}/${height}`
-export const CATEGORIES = ['India', 'World', 'Politics', 'Business', 'Technology', 'Sports', 'Entertainment', 'Education', 'Health', 'Lifestyle']
+export const CATEGORIES = ['India', 'World', 'Cities', 'Movies', 'Election', 'Politics', 'Business', 'Technology', 'Sports', 'Entertainment', 'Education', 'Health', 'Lifestyle']
+export const PUBLISHABLE_CATEGORIES = CATEGORIES.filter((category) => !['Politics', 'Health'].includes(category))
 export const slugify = (category) => category.toLowerCase()
 
 const ARTICLE_CONTENT_TAGS = new Set(['A', 'B', 'BLOCKQUOTE', 'BR', 'DIV', 'EM', 'H2', 'H3', 'I', 'LI', 'OL', 'P', 'S', 'STRIKE', 'STRONG', 'U', 'UL'])

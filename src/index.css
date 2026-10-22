@@ -736,7 +736,7 @@ header { background: #fff; }
 .hero-meta > span { display: inline-flex; align-items: center; gap: 6px; }
 .hero-meta > i { width: 3px; height: 3px; border-radius: 50%; background: rgba(255,255,255,.6); }
 .hero .btn-outline { min-height: 42px; padding: 9px 14px; }
-.quick { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.quick { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .top-stories .row > div { min-width: 0; }
 .yho-spotlight {
   position: relative;
