@@ -26,7 +26,6 @@ export function StoryLink({ article, children, ...props }) {
   return <Link {...props} to={`/article/${article.id}`}>{children}</Link>
 }
 
-// Row: thumbnail + category + title + meta
 export function Row({ a }) {
   return (
     <StoryLink article={a} className="row">

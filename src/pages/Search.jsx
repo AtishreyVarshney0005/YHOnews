@@ -11,7 +11,7 @@ export default function Search() {
   const [params, setParams] = useSearchParams()
   const q = (params.get('q') || '').trim()
   const dateRange = normalizeNewsDateRange(params.get('range'))
-  const [selected, setSelected] = useState([]) // empty = all categories
+  const [selected, setSelected] = useState([]) 
   const [publishedArticles, setPublishedArticles] = useState([])
 
   useEffect(() => {

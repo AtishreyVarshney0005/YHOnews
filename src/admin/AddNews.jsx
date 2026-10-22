@@ -83,8 +83,6 @@ export default function AddNews() {
     r.readAsDataURL(file)
   }
 
-  // Toolbar uses document.execCommand (deprecated but works everywhere).
-  // Swap in TipTap / Quill for a production editor.
   const cmd = (c, v) => (e) => { e.preventDefault(); document.execCommand(c, false, v); editor.current?.focus() }
   const link = (e) => { e.preventDefault(); const u = window.prompt('Link URL'); if (u) document.execCommand('createLink', false, u) }
 
