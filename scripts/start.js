@@ -51,6 +51,7 @@ const server = await preview({
 		host: '0.0.0.0',
 		port,
 		strictPort: true,
+		allowedHosts: process.env.RENDER_EXTERNAL_HOSTNAME ? [process.env.RENDER_EXTERNAL_HOSTNAME] : [],
 	},
 })
 
