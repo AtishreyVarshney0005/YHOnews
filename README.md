@@ -11,7 +11,7 @@ Routes: `/` home, `/category/:slug`, `/article/:id`, `/search?q=`, `/about`, `/c
 
 - The homepage and categories display stories written and published manually through the admin panel. No external News API or weather API key is needed.
 - Admin login, article management, and image delivery use the project's internal API. Production article storage uses Neon Postgres; local development uses `data/articles.json`.
-- The article sidebar provides a Hindi translation using the MyMemory translation service; only the article currently being viewed is sent for translation. Set `MYMEMORY_EMAIL` to a contact email you consent to share with MyMemory to increase the daily translation quota.
+- The article sidebar provides a Hindi translation using MyMemory, with Google Translate as a fallback when MyMemory is unavailable; only the article currently being viewed is sent to the translation provider. Set `MYMEMORY_EMAIL` to a contact email you consent to share with MyMemory to increase its daily translation quota.
 - Public pages load as separate JavaScript chunks, use page-specific metadata and article structured data, and reveal content as readers scroll. Scroll effects respect reduced-motion preferences.
 - `public/robots.txt` and the `/sitemap.xml` endpoint provide search-engine crawl guidance and include published article URLs.
 - Set `PUBLIC_SITE_URL` to the public canonical origin if it differs from `https://yhonewsindia.onrender.com`.

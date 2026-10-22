@@ -1,5 +1,17 @@
 const hindiTranslationCache = new Map()
 
+async function fetchTranslationResponse(url) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10000)
+  try {
+    const response = await fetch(url, { signal: controller.signal })
+    if (!response.ok) throw new Error('Translation provider returned an unsuccessful response.')
+    return await response.json()
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 function splitTranslationText(text) {
   const chunks = []
   let remaining = text.trim()
@@ -27,18 +39,26 @@ function splitTranslationText(text) {
 async function translateTextToHindi(text) {
   if (hindiTranslationCache.has(text)) return hindiTranslationCache.get(text)
 
-  const params = new URLSearchParams({ q: text, langpair: 'en|hi' })
-  if (process.env.MYMEMORY_EMAIL) params.set('de', process.env.MYMEMORY_EMAIL.trim())
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 15000)
-
   try {
-    const response = await fetch(`https://api.mymemory.translated.net/get?${params}`, { signal: controller.signal })
-    if (!response.ok) throw new Error('Translation service returned an unsuccessful response.')
+    let translated = ''
+    try {
+      const params = new URLSearchParams({ q: text, langpair: 'en|hi' })
+      if (process.env.MYMEMORY_EMAIL) params.set('de', process.env.MYMEMORY_EMAIL.trim())
+      const payload = await fetchTranslationResponse(`https://api.mymemory.translated.net/get?${params}`)
+      translated = payload.responseStatus === 200 ? payload.responseData?.translatedText || '' : ''
+    } catch {
+      translated = ''
+    }
 
-    const payload = await response.json()
-    const translated = payload.responseStatus === 200 ? payload.responseData?.translatedText || '' : ''
-    if (!translated) throw new Error('Translation service returned an empty response.')
+    if (!translated) {
+      const params = new URLSearchParams({ client: 'gtx', sl: 'auto', tl: 'hi', dt: 't', q: text })
+      const payload = await fetchTranslationResponse(`https://translate.googleapis.com/translate_a/single?${params}`)
+      translated = Array.isArray(payload?.[0])
+        ? payload[0].map((segment) => Array.isArray(segment) ? segment[0] || '' : '').join('')
+        : ''
+    }
+
+    if (!translated.trim()) throw new Error('Hindi translation providers returned an empty response.')
 
     if (hindiTranslationCache.size >= 300) {
       hindiTranslationCache.delete(hindiTranslationCache.keys().next().value)
@@ -47,8 +67,6 @@ async function translateTextToHindi(text) {
     return translated
   } catch (error) {
     throw Object.assign(new Error('Hindi translation service is temporarily unavailable.', { cause: error }), { status: 502 })
-  } finally {
-    clearTimeout(timeout)
   }
 }
 
