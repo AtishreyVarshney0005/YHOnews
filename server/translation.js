@@ -4,14 +4,18 @@ function splitTranslationText(text) {
   const chunks = []
   let remaining = text.trim()
 
-  while (remaining.length > 450) {
-    const sentenceEnd = Math.max(
-      remaining.lastIndexOf('. ', 450),
-      remaining.lastIndexOf('! ', 450),
-      remaining.lastIndexOf('? ', 450),
-    )
-    const splitAt = sentenceEnd >= 250 ? sentenceEnd + 1 : remaining.lastIndexOf(' ', 450)
-    const boundary = splitAt > 0 ? splitAt : 450
+  while (Buffer.byteLength(remaining, 'utf8') > 450) {
+    let boundary = 0
+    let byteLength = 0
+    for (const character of remaining) {
+      const characterBytes = Buffer.byteLength(character, 'utf8')
+      if (byteLength + characterBytes > 450) break
+      byteLength += characterBytes
+      boundary += character.length
+    }
+
+    const safeBoundary = remaining.lastIndexOf(' ', boundary)
+    if (safeBoundary > 0) boundary = safeBoundary
     chunks.push(remaining.slice(0, boundary).trim())
     remaining = remaining.slice(boundary).trim()
   }
@@ -24,6 +28,7 @@ async function translateTextToHindi(text) {
   if (hindiTranslationCache.has(text)) return hindiTranslationCache.get(text)
 
   const params = new URLSearchParams({ q: text, langpair: 'en|hi' })
+  if (process.env.MYMEMORY_EMAIL) params.set('de', process.env.MYMEMORY_EMAIL.trim())
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 15000)
 
