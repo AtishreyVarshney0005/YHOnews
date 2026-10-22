@@ -131,7 +131,7 @@ export default function AddNews() {
     <button type="button" onMouseDown={cmd(c, v)} aria-label={label}><Icon size={16} /></button>
   )
 
-  if (loadingExisting) return <section className="card">Loading article...</section>
+  if (loadingExisting) return <section className="card article-skeleton" aria-hidden="true"><span className="article-skeleton-title" /><span className="article-skeleton-line" /><span className="article-skeleton-line short" /></section>
   if (id && !existingArticle) {
     return <section className="card"><h2>Article not found</h2>{saveError && <p className="err">{saveError}</p>}<Link to="/admin/articles" className="link">Back to articles</Link></section>
   }

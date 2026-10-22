@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Target, Eye, ShieldCheck, Handshake, Scale, Users, Newspaper } from 'lucide-react'
 import { img } from '../data.js'
+import PageMeta from '../components/PageMeta.jsx'
 
 const VALUES = [
   { Icon: ShieldCheck, title: 'Accuracy', text: 'We work to make every update clear, careful and grounded in credible information.' },
@@ -35,6 +36,12 @@ export default function About() {
   }, [])
 
   return (
+    <>
+    <PageMeta
+      title="About YHO News | News with Context"
+      description="Learn about YHO News, our mission, values and commitment to clear, useful reporting for informed readers."
+      path="/about"
+    />
     <div className="about-page" ref={pageRef}>
       <section className="about-hero">
         <div className="about-copy about-reveal">
@@ -80,5 +87,6 @@ export default function About() {
         </div>
       </section>
     </div>
+    </>
   )
 }

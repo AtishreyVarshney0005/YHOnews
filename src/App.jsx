@@ -1,19 +1,21 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import SiteLayout from './components/SiteLayout.jsx'
-import Home from './pages/Home.jsx'
-import Category from './pages/Category.jsx'
-import Article from './pages/Article.jsx'
-import Search from './pages/Search.jsx'
-import About from './pages/About.jsx'
-import Contact from './pages/Contact.jsx'
-import { Privacy, Terms } from './pages/Legal.jsx'
-import AdminLayout from './admin/AdminLayout.jsx'
-import AdminLogin from './admin/AdminLogin.jsx'
-import Dashboard from './admin/Dashboard.jsx'
-import AddNews from './admin/AddNews.jsx'
-import Articles from './admin/Articles.jsx'
-import NotFound from './pages/NotFound.jsx'
+
+const Home = lazy(() => import('./pages/Home.jsx'))
+const Category = lazy(() => import('./pages/Category.jsx'))
+const Article = lazy(() => import('./pages/Article.jsx'))
+const Search = lazy(() => import('./pages/Search.jsx'))
+const About = lazy(() => import('./pages/About.jsx'))
+const Contact = lazy(() => import('./pages/Contact.jsx'))
+const Privacy = lazy(() => import('./pages/Legal.jsx').then((module) => ({ default: module.Privacy })))
+const Terms = lazy(() => import('./pages/Legal.jsx').then((module) => ({ default: module.Terms })))
+const AdminLayout = lazy(() => import('./admin/AdminLayout.jsx'))
+const AdminLogin = lazy(() => import('./admin/AdminLogin.jsx'))
+const Dashboard = lazy(() => import('./admin/Dashboard.jsx'))
+const AddNews = lazy(() => import('./admin/AddNews.jsx'))
+const Articles = lazy(() => import('./admin/Articles.jsx'))
+const NotFound = lazy(() => import('./pages/NotFound.jsx'))
 
 const ADMIN_SESSION_KEY = 'yhu_admin_authenticated'
 
@@ -33,7 +35,7 @@ function RequireAdmin() {
     return () => { active = false }
   }, [])
 
-  if (authorized === null) return <main className="admin-login-page"><p>Checking admin access...</p></main>
+  if (authorized === null) return null
   if (!authorized) return <Navigate to="/admin/login" replace state={{ from: location }} />
 
   return <Outlet />
@@ -53,9 +55,9 @@ export default function App() {
         <Route path="/terms" element={<Terms />} />
         <Route path="*" element={<NotFound />} />
       </Route>
-      <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/admin/login" element={<Suspense fallback={null}><AdminLogin /></Suspense>} />
       <Route element={<RequireAdmin />}>
-        <Route path="/admin" element={<AdminLayout />}>
+        <Route path="/admin" element={<Suspense fallback={null}><AdminLayout /></Suspense>}>
           <Route index element={<Dashboard />} />
           <Route path="add" element={<AddNews />} />
           <Route path="articles" element={<Articles />} />

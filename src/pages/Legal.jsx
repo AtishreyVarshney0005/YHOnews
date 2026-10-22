@@ -1,31 +1,41 @@
+import PageMeta from '../components/PageMeta.jsx'
+
 function Legal({ title, updated, sections }) {
+  const path = title === 'Privacy Policy' ? '/privacy' : '/terms'
   return (
-    <section className="card legal">
-      <h1 className="accent">{title}</h1>
-      <p className="muted">Last Updated: {updated}</p>
-      {sections.map((s, i) => (
-        <div key={s.h} className="legal-sec">
-          <h2>{i + 1}. {s.h}</h2>
-          {s.p && <p>{s.p}</p>}
-          {s.list && (
-            <ul>
-              {s.list.map(([b, t]) => <li key={t}>{b && <b>{b} </b>}{t}</li>)}
-            </ul>
-          )}
-        </div>
-      ))}
-    </section>
+    <>
+      <PageMeta
+        title={`${title} | YHO News`}
+        description={`${title} for the YHO News website.`}
+        path={path}
+      />
+      <section className="card legal">
+        <h1 className="accent">{title}</h1>
+        <p className="muted">Last Updated: {updated}</p>
+        {sections.map((s, i) => (
+          <div key={s.h} className="legal-sec">
+            <h2>{i + 1}. {s.h}</h2>
+            {s.p && <p>{s.p}</p>}
+            {s.list && (
+              <ul>
+                {s.list.map(([b, t]) => <li key={t}>{b && <b>{b} </b>}{t}</li>)}
+              </ul>
+            )}
+          </div>
+        ))}
+      </section>
+    </>
   )
 }
 
 export const Privacy = () => (
   <Legal
     title="Privacy Policy"
-    updated="17 Oct 2026"
+    updated="21 Oct 2026"
     sections={[
       { h: 'Who We Are and Scope', p: 'YHO News (\"we\", \"us\", or \"our\") operates this news website from Aligarh, Uttar Pradesh, India. This policy explains how information may be handled when you visit the site or contact us. It applies to this website and does not cover third-party websites or services.' },
       { h: 'Information You Provide', p: 'You may choose to contact us by email or telephone and provide your name, contact details, and the contents of your enquiry. The website contact form is not connected to message delivery: information entered there stays in your browser and is not submitted to YHO News through that form. Please do not include sensitive personal information in an enquiry.' },
-      { h: 'Technical Information and Third Parties', p: 'When a page or API is requested, the hosting and service providers needed to deliver the site may receive technical information such as your IP address, browser, device, request time, and requested resource in their server logs. Some editorial and decorative images may be delivered by third-party image providers, which may receive connection information such as your IP address. Third-party providers process information under their own terms and privacy policies.' },
+      { h: 'Technical Information and Third Parties', p: 'When a page or API is requested, the hosting and service providers needed to deliver the site may receive technical information such as your IP address, browser, device, request time, and requested resource in their server logs. If you use the Hindi translation shown beside an article, that article text is sent to the MyMemory translation service to provide the translation. Some editorial and decorative images may be delivered by third-party image providers, which may receive connection information such as your IP address. Third-party providers process information under their own terms and privacy policies.' },
       { h: 'Cookies and Similar Technologies', p: 'YHO News does not currently use analytics, advertising, or cross-site tracking cookies. Administrative features may use browser session storage or essential session technology to maintain admin access. This is not used to track readers across websites. Your browser settings can control some storage and cookies, but disabling essential session technology may affect administrative features.' },
       { h: 'How We Use Information', list: [
         ['', 'To operate, maintain, and secure the website and its administrative services.'],
@@ -44,7 +54,7 @@ export const Privacy = () => (
 export const Terms = () => (
   <Legal
     title="Terms & Conditions"
-    updated="17 Oct 2026"
+    updated="21 Oct 2026"
     sections={[
       { h: 'Acceptance and Publisher', p: 'These Terms & Conditions apply to your use of the YHO News website. By using the site, you agree to these terms. If you do not agree, please do not use the site. YHO News is operated from Aligarh, Uttar Pradesh, India. Questions can be sent to yhoindia@gmail.com.' },
       { h: 'Use of the Website', p: 'You may use the website for lawful personal and informational purposes. You must not attempt to disrupt, damage, gain unauthorised access to, or interfere with the website, its systems, or other users’ access.' },

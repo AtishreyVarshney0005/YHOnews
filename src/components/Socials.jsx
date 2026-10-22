@@ -1,6 +1,6 @@
 import twitterImage from '../../twitter.png'
 import whatsappImage from '../../whatsapp.png'
-import { Link2 } from 'lucide-react'
+import { Link2, Youtube } from 'lucide-react'
 
 const items = [
   { name: 'Facebook', href: 'https://www.facebook.com/profile.php?id=61595695521987', image: '/social-facebook.svg', cls: 'fb' },
@@ -8,7 +8,9 @@ const items = [
   { name: 'X', href: 'https://x.com/yhonews2001', image: twitterImage, cls: 'twitter' },
 ]
 
-export default function Socials({ size = 16, whatsappShareUrl, copyLinkUrl }) {
+export default function Socials({ size = 16, whatsappShareUrl, copyLinkUrl, showFooterLinks = false }) {
+  const shareUrl = whatsappShareUrl || (showFooterLinks ? window.location.origin : '')
+
   return (
     <div className="socials brand-socials">
       {items.map(({ name, href, image, cls }) => (
@@ -16,13 +18,26 @@ export default function Socials({ size = 16, whatsappShareUrl, copyLinkUrl }) {
           <img src={image} alt="" width={size} height={size} />
         </a>
       ))}
-      {whatsappShareUrl && (
+      {showFooterLinks && (
         <a
-          href={`https://wa.me/?text=${encodeURIComponent(whatsappShareUrl)}`}
+          href="https://www.youtube.com/results?search_query=YHO+News"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="social brand-social yt"
+          aria-label="Find YHO News on YouTube"
+          title="Find YHO News on YouTube"
+        >
+          <Youtube size={size} aria-hidden="true" />
+        </a>
+      )}
+      {shareUrl && (
+        <a
+          href={`https://wa.me/?text=${encodeURIComponent(shareUrl)}`}
           target="_blank"
           rel="noopener noreferrer"
           className="social brand-social whatsapp"
-          aria-label="Share on WhatsApp"
+          aria-label={showFooterLinks ? 'Share YHO News on WhatsApp' : 'Share on WhatsApp'}
+          title={showFooterLinks ? 'Share YHO News on WhatsApp' : undefined}
         >
           <img src={whatsappImage} alt="" width={size} height={size} />
         </a>

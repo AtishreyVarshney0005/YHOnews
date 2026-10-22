@@ -1,5 +1,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import { createRequire } from 'node:module'
+import { translateTextsToHindi } from '../server/translation.js'
+import { createSitemapXml } from '../server/sitemap.js'
 
 const require = createRequire(import.meta.url)
 const seedArticles = require('../data/articles.json')
@@ -27,10 +29,21 @@ function sendImage(response, image) {
   response.end(body)
 }
 
+function sendSitemap(response, body) {
+  response.statusCode = 200
+  response.setHeader('Content-Type', 'application/xml; charset=utf-8')
+  response.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300')
+  response.end(body)
+}
+
 function publicImageUrl(id, image, updatedAt) {
   return String(image || '').startsWith('data:image/')
-    ? `/api/articles/${encodeURIComponent(id)}/image?v=${encodeURIComponent(updatedAt || '1')}`
+    ? publicImagePath(id, updatedAt)
     : image || ''
+}
+
+function publicImagePath(id, updatedAt) {
+  return `/api/articles/${encodeURIComponent(id)}/image?v=${encodeURIComponent(updatedAt || '1')}`
 }
 
 function toPublicArticle(article, image = article.image) {
@@ -112,9 +125,18 @@ async function readPublishedArticleAndCountView(id) {
   const rows = await sql`UPDATE yho_news_articles
     SET view_count = view_count + 1
     WHERE id = ${id} AND status = 'Published' AND category = ANY(${[...ARTICLE_CATEGORIES]})
-    RETURNING data, view_count`
+    RETURNING data - 'image' AS data,
+      CASE WHEN data->>'image' LIKE 'data:image/%' THEN NULL ELSE data->>'image' END AS image_url,
+      (data->>'image' LIKE 'data:image/%') AS has_embedded_image,
+      view_count`
   const row = rows[0]
-  return row ? { ...row.data, image: publicImageUrl(row.data.id, row.data.image, row.data.updatedAt || row.data.createdAt), viewCount: row.view_count } : null
+  return row ? {
+    ...row.data,
+    image: row.has_embedded_image
+      ? publicImagePath(row.data.id, row.data.updatedAt || row.data.createdAt)
+      : row.image_url || '',
+    viewCount: row.view_count,
+  } : null
 }
 
 async function readPublishedArticleImage(id) {
@@ -190,10 +212,25 @@ export default async function handler(request, response) {
     const pathname = new URL(request.url || '/', 'http://localhost').pathname
     const publicItem = pathname.match(/^\/api\/articles\/([^/]+)$/)
     const publicImage = pathname.match(/^\/api\/articles\/([^/]+)\/image$/)
+    const translation = pathname === '/api/translate'
     const adminArticles = pathname.match(/^\/api\/admin\/articles(?:\/([^/]+))?$/)
+
+    if (pathname === '/api/sitemap' && request.method === 'GET') {
+      const sql = await getDatabase()
+      const rows = await sql`SELECT id, updated_at AS "updatedAt", published_at AS "publishedAt"
+        FROM yho_news_articles
+        WHERE status = 'Published' AND category = ANY(${[...ARTICLE_CATEGORIES]})
+        ORDER BY published_at DESC`
+      return sendSitemap(response, createSitemapXml(rows))
+    }
 
     if (pathname === '/api/health' && request.method === 'GET') {
       return sendJson(response, 200, { status: 'ok' })
+    }
+
+    if (translation && request.method === 'POST') {
+      const { texts } = readJson(request)
+      return sendJson(response, 200, { translations: await translateTextsToHindi(texts) })
     }
 
     if (publicImage && request.method === 'GET') {

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { Search, Calendar, Clock, Menu, X } from 'lucide-react'
 import Logo from './Logo.jsx'
 import Socials from './Socials.jsx'
 import { CATEGORIES, slugify } from '../data.js'
+import useScrollReveal from '../hooks/useScrollReveal.js'
 
 const NAV_CATEGORIES = CATEGORIES.filter((category) => !['India', 'World', 'Politics', 'Health'].includes(category))
 const dateFormatter = new Intl.DateTimeFormat('en-IN', {
@@ -78,9 +79,11 @@ function Header() {
 function Footer() {
   const half = Math.ceil(NAV_CATEGORIES.length / 2)
   const [params] = useSearchParams()
+  const footerRef = useRef(null)
+  useScrollReveal(footerRef)
   const rangeQuery = params.get('range') ? `?range=${encodeURIComponent(params.get('range'))}` : ''
   return (
-    <footer className="footer">
+    <footer className="footer" ref={footerRef}>
       <div className="container footgrid">
         <div>
           <Logo light tagline="Your World, Your News. Stay Informed." />
@@ -105,7 +108,7 @@ function Footer() {
         </div>
         <div>
           <h4>Follow Us</h4>
-          <Socials />
+          <Socials showFooterLinks />
           <p className="footer-contact-copy">Have a story tip or feedback?</p>
           <Link className="footer-contact-link" to="/contact">Get in touch <span aria-hidden="true">→</span></Link>
         </div>
@@ -125,12 +128,14 @@ function Footer() {
 
 export default function SiteLayout() {
   const { pathname } = useLocation()
+  const pageRef = useRef(null)
+  useScrollReveal(pageRef, pathname)
   useEffect(() => { window.scrollTo(0, 0) }, [pathname])
   return (
     <>
       <Header />
-      <main className="container page">
-        <Outlet />
+      <main className="container page" ref={pageRef}>
+        <Suspense fallback={null}><Outlet /></Suspense>
       </main>
       <Footer />
     </>

@@ -78,7 +78,7 @@ export default function Articles() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="7" className="empty-state">Loading articles...</td></tr>
+              <tr><td colSpan="7" className="empty-state"><div className="admin-table-skeleton" aria-hidden="true"><span /><span /><span /></div></td></tr>
             ) : filtered.length ? (
               filtered.map((article, index) => (
                 <tr key={String(article.id ?? `${article.title}-${index}`)}>

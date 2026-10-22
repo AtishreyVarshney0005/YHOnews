@@ -30,7 +30,7 @@ export function StoryLink({ article, children, ...props }) {
 export function Row({ a }) {
   return (
     <StoryLink article={a} className="row">
-      {a.image && <img src={a.image} alt="" loading="lazy" />}
+      {a.image && <img src={a.image} alt="" loading="lazy" decoding="async" />}
       <div>
         <small className={`cat c-${a.category.toLowerCase()}`}>{a.category}</small>
         <h3>{a.title}</h3>

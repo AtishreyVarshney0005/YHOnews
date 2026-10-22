@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Mail, Phone, MapPin } from 'lucide-react'
+import PageMeta from '../components/PageMeta.jsx'
 
 const SUBJECTS = ['General enquiry', 'News tip', 'Advertising', 'Feedback', 'Technical issue']
 const CONTACT_EMAIL = 'yhoindia@gmail.com'
@@ -34,6 +35,11 @@ export default function Contact() {
 
   return (
     <>
+      <PageMeta
+        title="Contact YHO News | Send a News Tip or Feedback"
+        description="Contact the YHO News team with a question, news tip, feedback or general enquiry."
+        path="/contact"
+      />
       <div className="contact-heading">
         <h1 className="accent big">Get in Touch</h1>
         <p className="subtitle">Have a question, a news tip, or feedback? We'd love to hear from you.</p>

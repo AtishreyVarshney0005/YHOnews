@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react'
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { translateTextsToHindi } from './server/translation.js'
+import { createSitemapXml } from './server/sitemap.js'
 
 function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv = [] }) {
 	const storageFile = path.resolve(process.cwd(), 'data/articles.json')
@@ -19,6 +21,13 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv 
 		response.end(JSON.stringify(body))
 	}
 
+	const sendSitemap = (response, body) => {
+		response.statusCode = 200
+		response.setHeader('Content-Type', 'application/xml; charset=utf-8')
+		response.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300')
+		response.end(body)
+	}
+
 	const sendImage = (response, image) => {
 		const match = /^data:(image\/(?:jpeg|png|webp));base64,([a-z0-9+/=\s]+)$/i.exec(String(image || ''))
 		if (!match) return sendJson(response, 404, { message: 'Article image not found.' })
@@ -32,8 +41,9 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv 
 	}
 
 	const publicImageUrl = (id, image, updatedAt) => String(image || '').startsWith('data:image/')
-		? `/api/articles/${encodeURIComponent(id)}/image?v=${encodeURIComponent(updatedAt || '1')}`
+		? publicImagePath(id, updatedAt)
 		: image || ''
+	const publicImagePath = (id, updatedAt) => `/api/articles/${encodeURIComponent(id)}/image?v=${encodeURIComponent(updatedAt || '1')}`
 
 	const toPublicArticle = (article) => {
 		const content = String(article.content || '').trim()
@@ -132,11 +142,16 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv 
 			const rows = await sql`UPDATE yho_news_articles
 				SET view_count = view_count + 1
 				WHERE id = ${id} AND status = 'Published' AND category = ANY(${[...allowedCategories]})
-				RETURNING data, view_count`
+				RETURNING data - 'image' AS data,
+					CASE WHEN data->>'image' LIKE 'data:image/%' THEN NULL ELSE data->>'image' END AS image_url,
+					(data->>'image' LIKE 'data:image/%') AS has_embedded_image,
+					view_count`
 			const row = rows[0]
 			return row ? {
 				...row.data,
-				image: publicImageUrl(row.data.id, row.data.image, row.data.updatedAt || row.data.createdAt),
+				image: row.has_embedded_image
+					? publicImagePath(row.data.id, row.data.updatedAt || row.data.createdAt)
+					: row.image_url || '',
 				viewCount: row.view_count,
 			} : null
 		}
@@ -238,16 +253,36 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv 
 		if (pathname === '/api/health' && request.method === 'GET') {
 			return sendJson(response, 200, { status: 'ok' })
 		}
+		const sitemap = pathname === '/sitemap.xml'
 		const publicCollection = pathname === '/api/articles'
 		const publicItem = pathname.match(/^\/api\/articles\/([^/]+)$/)
 		const publicImage = pathname.match(/^\/api\/articles\/([^/]+)\/image$/)
+		const translation = pathname === '/api/translate'
 		const adminSession = pathname === '/api/admin/session'
 		const adminLogin = pathname === '/api/admin/login'
 		const adminLogout = pathname === '/api/admin/logout'
 		const adminArticles = pathname.match(/^\/api\/admin\/articles(?:\/([^/]+))?$/)
-		if (!publicCollection && !publicItem && !publicImage && !adminSession && !adminLogin && !adminLogout && !adminArticles) return next()
+		if (!sitemap && !publicCollection && !publicItem && !publicImage && !translation && !adminSession && !adminLogin && !adminLogout && !adminArticles) return next()
 
 		try {
+			if (sitemap && request.method === 'GET') {
+				const sql = await getDatabase()
+				const articles = sql
+					? await sql`SELECT id, updated_at AS "updatedAt", published_at AS "publishedAt"
+						FROM yho_news_articles
+						WHERE status = 'Published' AND category = ANY(${[...allowedCategories]})
+						ORDER BY published_at DESC`
+					: (await readLocalArticles())
+						.filter((article) => article.status === 'Published' && allowedCategories.has(article.category))
+						.map(({ id, updatedAt, publishedAt }) => ({ id, updatedAt, publishedAt }))
+				return sendSitemap(response, createSitemapXml(articles))
+			}
+
+			if (translation && request.method === 'POST') {
+				const { texts } = await readJson(request)
+				return sendJson(response, 200, { translations: await translateTextsToHindi(texts) })
+			}
+
 			if (publicImage && request.method === 'GET') {
 				const image = await readPublishedArticleImage(decodeURIComponent(publicImage[1]))
 				return image ? sendImage(response, image) : sendJson(response, 404, { message: 'Article image not found.' })

@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { BarChart3, Settings, Trophy, Drama, GraduationCap, Heart, ChevronLeft, ChevronRight, Clock, ArrowRight, ArrowUpRight, TrendingUp, CalendarDays, BookOpen, Radio } from 'lucide-react'
 import { SectionTitle, Row, StoryLink } from '../components/Bits.jsx'
 import NewsDateFilter from '../components/NewsDateFilter.jsx'
+import PageMeta from '../components/PageMeta.jsx'
 import { filterArticlesByDateRange, mapPublishedArticle, normalizeNewsDateRange } from '../data.js'
 
 const QUICK = [
@@ -18,7 +19,7 @@ function NewsCard({ article }) {
   return (
     <StoryLink article={article} className="home-news-card">
       <div className="home-news-thumb">
-        {article.image && <img src={article.image} alt="" loading="lazy" />}
+        {article.image && <img src={article.image} alt="" loading="lazy" decoding="async" />}
         <span className={`cat c-${article.category.toLowerCase()}`}>{article.category}</span>
       </div>
       <div className="home-news-copy">
@@ -98,6 +99,18 @@ export default function Home() {
 
   return (
     <>
+      <PageMeta
+        title="Latest News Today: India, World, Business & More | YHO News"
+        description="Read today's latest news, top headlines and updates from India and around the world across business, technology, sports, entertainment and more."
+        path="/"
+        structuredData={{
+          '@context': 'https://schema.org',
+          '@type': 'NewsMediaOrganization',
+          name: 'YHO News',
+          url: window.location.origin,
+          logo: `${window.location.origin}/logo.png`,
+        }}
+      />
       <div className="card home-date-filter">
         <NewsDateFilter value={dateRange} onChange={updateDateRange} />
       </div>
@@ -153,9 +166,11 @@ export default function Home() {
                 {slides.length > 1 && <div className="dots">
                   {slides.map((article, dot) => <button key={article.id} className={dot === index ? 'on' : ''} onClick={() => setIndex(dot)} aria-label={`Slide ${dot + 1}`} />)}
                 </div>}
-              </> : <div className="news-status" role="status">
-                {status === 'loading' ? 'Loading headlines...' : status === 'error' ? error : 'No recent stories in the selected categories.'}
-              </div>}
+              </> : status === 'loading'
+                ? <div className="hero-skeleton" aria-hidden="true"><span /><span /><span /></div>
+                : <div className="news-status" role={status === 'error' ? 'alert' : 'status'}>
+                  {status === 'error' ? error : 'No recent stories in the selected categories.'}
+                </div>}
             </div>
           </section>
 
@@ -183,7 +198,7 @@ export default function Home() {
         <aside className="card top-stories">
           <h2 className="accent">Top Stories</h2>
           {articles.slice(1, 6).map((article) => <Row key={article.id} a={article} />)}
-          {status === 'loading' && <p className="muted news-list-status">Loading headlines...</p>}
+          {status === 'loading' && <div className="news-list-skeleton" aria-hidden="true"><span /><span /><span /></div>}
           {status === 'error' && <p className="muted news-list-status">{error}</p>}
           {status === 'ready' && articles.length <= 1 && <p className="muted news-list-status">No recent stories in the selected categories.</p>}
         </aside>
@@ -195,7 +210,7 @@ export default function Home() {
           <div className="home-news-grid">
             {latest.map((article) => <NewsCard key={article.id} article={article} />)}
           </div>
-          {status === 'loading' && <p className="muted news-list-status">Loading headlines...</p>}
+          {status === 'loading' && <div className="news-cards-skeleton" aria-hidden="true"><span /><span /><span /></div>}
           {status === 'error' && <p className="muted news-list-status">{error}</p>}
           {status === 'ready' && latest.length === 0 && <p className="muted news-list-status">No recent stories in the selected categories.</p>}
         </section>

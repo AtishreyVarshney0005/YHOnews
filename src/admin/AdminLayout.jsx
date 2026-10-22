@@ -1,7 +1,10 @@
+import { useRef } from 'react'
 import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, FileText, LogOut } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import Socials from '../components/Socials.jsx'
+import PageMeta from '../components/PageMeta.jsx'
+import useScrollReveal from '../hooks/useScrollReveal.js'
 
 const MENU = [
   { label: 'Dashboard', to: '/admin', Icon: LayoutDashboard, end: true },
@@ -10,6 +13,8 @@ const MENU = [
 
 export default function AdminLayout() {
   const navigate = useNavigate()
+  const contentRef = useRef(null)
+  useScrollReveal(contentRef)
 
   const logout = async () => {
     await fetch('/api/admin/logout', { method: 'POST' }).catch(() => {})
@@ -19,6 +24,7 @@ export default function AdminLayout() {
 
   return (
     <div className="admin">
+      <PageMeta title="Admin Panel | YHO News" description="Manage YHO News articles." robots="noindex, nofollow" />
       <aside className="sidebar">
         <Logo light tagline="Your World, Your News." />
         <nav>
@@ -41,7 +47,7 @@ export default function AdminLayout() {
             <div><b>Admin</b><small>Administrator</small></div>
           </div>
         </div>
-        <div className="admin-content"><Outlet /></div>
+        <div className="admin-content" ref={contentRef}><Outlet /></div>
         <footer className="admin-foot">
           <div className="admin-foot-inner">
             <span className="admin-copyright">© 2026 YHO News. All rights reserved.</span>
