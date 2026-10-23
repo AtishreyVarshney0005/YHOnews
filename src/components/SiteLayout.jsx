@@ -74,10 +74,26 @@ function DelhiWeather() {
   }, [])
 
   if (weather.status === 'loading') {
-    return <div className="weatherbox" role="status">Delhi weather loading…</div>
+    return (
+      <div className="weatherbox weatherbox-state" role="status">
+        <CloudSun size={20} aria-hidden="true" />
+        <span className="weatherbox-copy">
+          <strong>Delhi</strong>
+          <span className="weatherbox-condition">Loading weather…</span>
+        </span>
+      </div>
+    )
   }
   if (weather.status === 'error') {
-    return <div className="weatherbox" role="status">Delhi weather unavailable</div>
+    return (
+      <div className="weatherbox weatherbox-state" role="status">
+        <Cloud size={20} aria-hidden="true" />
+        <span className="weatherbox-copy">
+          <strong>Delhi</strong>
+          <span className="weatherbox-condition">Weather unavailable</span>
+        </span>
+      </div>
+    )
   }
 
   const { Icon, temperature, label } = weather.current
