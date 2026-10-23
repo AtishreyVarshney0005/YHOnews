@@ -79,6 +79,13 @@ button { font: inherit; cursor: pointer; }
 .datebox { display: flex; flex-direction: column; gap: 3px; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .datebox span { display: flex; align-items: center; gap: 5px; }
 .datebox .muted { font-weight: 500; }
+.weatherbox { display: flex; flex: none; align-items: center; gap: 8px; color: var(--blue); font-size: 12px; white-space: nowrap; }
+.weatherbox > svg { flex: none; }
+.weatherbox-copy { display: flex; flex-direction: column; gap: 1px; color: var(--text); }
+.weatherbox-copy strong { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.weatherbox-copy strong b { font-size: 15px; }
+.weatherbox-condition { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 10px; }
+.weatherbox-condition a { display: inline-flex; color: inherit; }
 .mobile-only { display: none; }
 .mainnav { background: var(--navy); box-shadow: 0 4px 14px rgba(16, 28, 53, .12); }
 .navrow { display: flex; justify-content: space-between; overflow-x: auto; scrollbar-width: none; }
@@ -552,6 +559,7 @@ td.t { min-width: 180px; font-weight: 600; } td.d { color: #52627f; min-width: 9
   .topbar > .logo { justify-self: end; }
   .topbar > .datebox { display: none; }
   .topbar > .search { grid-column: 1 / -1; order: 0; width: 100%; }
+  .topbar > .weatherbox { grid-column: 1 / -1; justify-self: center; }
   .mobile-only { min-width: 44px; min-height: 44px; justify-content: center; }
   .mainnav .navrow { align-items: stretch; padding-bottom: 8px; }
   .navrow a { min-height: 44px; }

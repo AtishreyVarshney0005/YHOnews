@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
-import { Search, Calendar, Clock, Menu, X } from 'lucide-react'
+import { Search, Calendar, Clock, Menu, X, Sun, Cloud, CloudSun, CloudFog, CloudDrizzle, CloudRain, CloudSnow, CloudLightning, Info } from 'lucide-react'
 import Logo from './Logo.jsx'
 import Socials from './Socials.jsx'
 import { PUBLISHABLE_CATEGORIES, slugify } from '../data.js'
@@ -23,6 +23,79 @@ const dateFormatter = new Intl.DateTimeFormat('en-IN', {
 const timeFormatter = new Intl.DateTimeFormat('en-IN', {
   hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata',
 })
+
+function describeWeather(code) {
+  if (code === 0) return { label: 'Clear sky', Icon: Sun }
+  if ([1, 2].includes(code)) return { label: 'Partly cloudy', Icon: CloudSun }
+  if (code === 3) return { label: 'Overcast', Icon: Cloud }
+  if ([45, 48].includes(code)) return { label: 'Fog', Icon: CloudFog }
+  if ([51, 53, 55, 56, 57].includes(code)) return { label: 'Drizzle', Icon: CloudDrizzle }
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return { label: 'Rain', Icon: CloudRain }
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return { label: 'Snow', Icon: CloudSnow }
+  if ([95, 96, 99].includes(code)) return { label: 'Thunderstorm', Icon: CloudLightning }
+  return { label: 'Current conditions', Icon: Cloud }
+}
+
+function DelhiWeather() {
+  const [weather, setWeather] = useState({ status: 'loading', current: null })
+
+  useEffect(() => {
+    let active = true
+    const controller = new AbortController()
+    const loadWeather = async () => {
+      try {
+        const response = await fetch(
+          'https://api.open-meteo.com/v1/forecast?latitude=28.6139&longitude=77.2090&current=temperature_2m,weather_code&timezone=Asia%2FKolkata',
+          { signal: controller.signal },
+        )
+        if (!response.ok) throw new Error(`Weather service returned ${response.status}.`)
+        const data = await response.json()
+        const temperature = data.current?.temperature_2m
+        const code = data.current?.weather_code
+        if (!Number.isFinite(temperature) || !Number.isInteger(code)) {
+          throw new Error('Weather service returned incomplete Delhi weather data.')
+        }
+        if (active) setWeather({ status: 'ready', current: { temperature, ...describeWeather(code) } })
+      } catch (error) {
+        if (error.name !== 'AbortError' && active) {
+          console.error('Could not load Delhi weather:', error)
+          setWeather({ status: 'error', current: null })
+        }
+      }
+    }
+
+    loadWeather()
+    const refreshTimer = window.setInterval(loadWeather, 15 * 60 * 1000)
+    return () => {
+      active = false
+      controller.abort()
+      window.clearInterval(refreshTimer)
+    }
+  }, [])
+
+  if (weather.status === 'loading') {
+    return <div className="weatherbox" role="status">Delhi weather loading…</div>
+  }
+  if (weather.status === 'error') {
+    return <div className="weatherbox" role="status">Delhi weather unavailable</div>
+  }
+
+  const { Icon, temperature, label } = weather.current
+  return (
+    <div className="weatherbox" role="status" aria-label={`Delhi weather: ${label}, ${Math.round(temperature)} degrees Celsius`}>
+      <Icon size={24} aria-hidden="true" />
+      <span className="weatherbox-copy">
+        <strong>Delhi <b>{Math.round(temperature)}°C</b></strong>
+        <span className="weatherbox-condition">
+          {label}
+          <a href="https://open-meteo.com/en/licence" target="_blank" rel="noopener noreferrer" aria-label="Weather data by Open-Meteo, licensed under CC BY 4.0" title="Weather data by Open-Meteo, licensed under CC BY 4.0">
+            <Info size={12} aria-hidden="true" />
+          </a>
+        </span>
+      </span>
+    </div>
+  )
+}
 
 function Header() {
   const [params] = useSearchParams()
@@ -70,6 +143,7 @@ function Header() {
           <span><Calendar size={13} /> {dateFormatter.format(now)}</span>
           <span className="muted"><Clock size={13} /> {timeFormatter.format(now)} IST</span>
         </div>
+        <DelhiWeather />
         <Socials />
       </div>
       <nav id="main-navigation" className={`mainnav ${open ? 'open' : ''}`}>
