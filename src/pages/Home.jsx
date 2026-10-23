@@ -55,6 +55,7 @@ export default function Home() {
   const dateRange = normalizeNewsDateRange(searchParams.get('range'))
   const [allArticles, setAllArticles] = useState([])
   const [index, setIndex] = useState(0)
+  const [topStoriesMode, setTopStoriesMode] = useState('latest')
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
 
@@ -111,6 +112,9 @@ export default function Home() {
   const slide = slides[index]
   const latest = articles.slice(0, 6)
   const moreNews = articles.slice(6, 12)
+  const topStories = topStoriesMode === 'trending'
+    ? [...articles].sort((first, second) => (Number(second.viewCount) || 0) - (Number(first.viewCount) || 0)).slice(0, 5)
+    : articles.slice(1, 6)
   const interestSections = QUICK.map(({ label, to }) => ({
     label,
     to,
@@ -216,8 +220,14 @@ export default function Home() {
         </div>
 
         <aside className="card top-stories">
-          <h2 className="accent">Top Stories</h2>
-          {articles.slice(1, 6).map((article) => <Row key={article.id} a={article} />)}
+          <div className="top-stories-heading">
+            <h2 className="accent">Top Stories</h2>
+            <div className="top-stories-tabs" aria-label="Choose top stories">
+              <button type="button" className={topStoriesMode === 'latest' ? 'on' : ''} aria-pressed={topStoriesMode === 'latest'} onClick={() => setTopStoriesMode('latest')}>Latest</button>
+              <button type="button" className={topStoriesMode === 'trending' ? 'on' : ''} aria-pressed={topStoriesMode === 'trending'} onClick={() => setTopStoriesMode('trending')}>Trending</button>
+            </div>
+          </div>
+          {topStories.map((article) => <Row key={article.id} a={article} />)}
           {status === 'loading' && <div className="news-list-skeleton" aria-hidden="true"><span /><span /><span /></div>}
           {status === 'error' && <p className="muted news-list-status">{error}</p>}
           {status === 'ready' && articles.length <= 1 && <p className="muted news-list-status">No recent stories in the selected categories.</p>}
