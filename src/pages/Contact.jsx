@@ -58,7 +58,7 @@ export default function Contact() {
           </div>
           <div className="info-item">
             <span className="round solid" aria-hidden="true"><Phone /></span>
-            <div><h3>Call us</h3><a href="tel:+919808900159">+91 98089 00159</a><p>9 AM–6 PM, Monday to Friday</p></div>
+            <div><h3>Call us</h3><a href="tel:+919411059459">+91 94110 59459</a><p>9 AM–6 PM, Monday to Friday</p></div>
           </div>
           <div className="info-item">
             <span className="round solid" aria-hidden="true"><MessageCircle /></span>
@@ -66,7 +66,7 @@ export default function Contact() {
           </div>
           <div className="info-item">
             <span className="round solid" aria-hidden="true"><MapPin /></span>
-            <div><h3>Visit us</h3><p>Shivam Lokvani Kendra<br />Aligarh, Uttar Pradesh 202001</p></div>
+            <div><h3>Visit us</h3><p>Young Helps Organization, Marris Tower, Center Point<br />Aligarh, Uttar Pradesh 202001</p></div>
           </div>
         </aside>
 

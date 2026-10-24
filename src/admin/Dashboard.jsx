@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FileText, CheckCircle2, FilePenLine, Tags, Plus, Pencil, Trash2 } from 'lucide-react'
-import { readApiResponse } from './api.js'
+import { getAdminArticles, readApiResponse, removeAdminArticleFromCache } from './api.js'
 
 export default function Dashboard() {
   const [rows, setRows] = useState([])
@@ -9,11 +9,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     let active = true
-    fetch('/api/admin/articles')
-      .then(async (response) => {
-        const data = await readApiResponse(response, 'Could not load articles.')
-        if (active) setRows(data.articles)
-      })
+    getAdminArticles()
+      .then((articles) => { if (active) setRows(articles) })
       .catch((loadError) => { if (active) setError(loadError.message) })
     return () => { active = false }
   }, [])
@@ -27,6 +24,7 @@ export default function Dashboard() {
       setError(deleteError.message)
       return
     }
+    removeAdminArticleFromCache(id)
     setRows((current) => current.filter((article) => article.id !== id))
   }
 

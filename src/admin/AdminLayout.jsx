@@ -5,6 +5,7 @@ import Logo from '../components/Logo.jsx'
 import Socials from '../components/Socials.jsx'
 import PageMeta from '../components/PageMeta.jsx'
 import useScrollReveal from '../hooks/useScrollReveal.js'
+import { clearAdminArticlesCache } from './api.js'
 
 const MENU = [
   { label: 'Dashboard', to: '/admin', Icon: LayoutDashboard, end: true },
@@ -27,6 +28,7 @@ export default function AdminLayout() {
 
   const logout = async () => {
     await fetch('/api/admin/logout', { method: 'POST' }).catch(() => {})
+    clearAdminArticlesCache()
     sessionStorage.removeItem('yhu_admin_authenticated')
     navigate('/admin/login', { replace: true })
   }

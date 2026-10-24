@@ -5,7 +5,7 @@ import {
   List, ListOrdered, AlignLeft, AlignCenter, AlignRight, AlignJustify, Undo2, Redo2,
 } from 'lucide-react'
 import { PUBLISHABLE_CATEGORIES, sanitizeArticleContent } from '../data.js'
-import { readApiResponse } from './api.js'
+import { getAdminArticles, readApiResponse, saveAdminArticleCache } from './api.js'
 
 const AUTHORS = ['Admin', 'Editorial Desk', 'Staff Reporter']
 const MAX_BYTES = 2 * 1024 * 1024
@@ -44,10 +44,9 @@ export default function AddNews() {
   useEffect(() => {
     if (!id) return undefined
     let active = true
-    fetch('/api/admin/articles')
-      .then(async (response) => {
-        const data = await readApiResponse(response, 'Could not load article.')
-        const article = data.articles.find((item) => String(item.id) === id)
+    getAdminArticles()
+      .then((articles) => {
+        const article = articles.find((item) => String(item.id) === id)
         if (active && article) {
           setExistingArticle(article)
           setForm({
@@ -115,7 +114,8 @@ export default function AddNews() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      await readApiResponse(response, 'Could not save article.')
+      const data = await readApiResponse(response, 'Could not save article.')
+      saveAdminArticleCache(data.article)
       navigate('/admin/articles')
     } catch (error) {
       setSaveError(error.message || 'Could not save article.')
