@@ -1,5 +1,6 @@
+import { PUBLISHABLE_CATEGORIES } from '../shared/categories.js'
+
 const SITE_URL = (process.env.PUBLIC_SITE_URL || 'https://yhonewsindia.onrender.com').replace(/\/+$/, '')
-const CATEGORIES = ['india', 'world', 'cities', 'movies', 'election', 'business', 'technology', 'sports', 'entertainment', 'education', 'lifestyle']
 
 const escapeXml = (value) => String(value).replace(/[<>&'"]/g, (character) => ({
   '<': '&lt;',
@@ -16,7 +17,7 @@ export function createSitemapXml(articles) {
     ['/contact', 'monthly', '0.4'],
     ['/privacy', 'yearly', '0.2'],
     ['/terms', 'yearly', '0.2'],
-    ...CATEGORIES.map((category) => [`/category/${category}`, 'daily', '0.8']),
+    ...PUBLISHABLE_CATEGORIES.map((category) => [`/category/${category.toLowerCase()}`, 'daily', '0.8']),
   ]
   const urls = staticPaths.map(([pathname, changefreq, priority]) => (
     `<url><loc>${SITE_URL}${pathname}</loc><changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`

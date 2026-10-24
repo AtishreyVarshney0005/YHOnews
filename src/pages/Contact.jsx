@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Mail, Phone, MapPin } from 'lucide-react'
+import { Mail, Phone, MapPin, MessageCircle } from 'lucide-react'
 import PageMeta from '../components/PageMeta.jsx'
+import { WHATSAPP_CONTACT_URL } from '../data.js'
 
 const SUBJECTS = ['General enquiry', 'News tip', 'Advertising', 'Feedback', 'Technical issue']
 const CONTACT_EMAIL = 'yhoindia@gmail.com'
@@ -58,6 +59,10 @@ export default function Contact() {
           <div className="info-item">
             <span className="round solid" aria-hidden="true"><Phone /></span>
             <div><h3>Call us</h3><a href="tel:+919808900159">+91 98089 00159</a><p>9 AM–6 PM, Monday to Friday</p></div>
+          </div>
+          <div className="info-item">
+            <span className="round solid" aria-hidden="true"><MessageCircle /></span>
+            <div><h3>WhatsApp us</h3><a href={WHATSAPP_CONTACT_URL} target="_blank" rel="noopener noreferrer">+91 94110 59459</a><p>Ask about publishing your news</p></div>
           </div>
           <div className="info-item">
             <span className="round solid" aria-hidden="true"><MapPin /></span>

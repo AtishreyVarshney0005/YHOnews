@@ -5,10 +5,11 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { translateTextsToHindi } from './server/translation.js'
 import { createSitemapXml } from './server/sitemap.js'
+import { PUBLISHABLE_CATEGORIES } from './shared/categories.js'
 
 function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv = [] }) {
 	const storageFile = path.resolve(process.cwd(), 'data/articles.json')
-	const allowedCategories = new Set(['Business', 'Technology', 'Sports', 'Entertainment', 'Education', 'Lifestyle'])
+	const allowedCategories = new Set(PUBLISHABLE_CATEGORIES)
 	let database
 	let databaseReady
 	let writeQueue = Promise.resolve()

@@ -2,10 +2,11 @@ import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { translateTextsToHindi } from '../server/translation.js'
 import { createSitemapXml } from '../server/sitemap.js'
+import { PUBLISHABLE_CATEGORIES } from '../shared/categories.js'
 
 const require = createRequire(import.meta.url)
 const seedArticles = require('../data/articles.json')
-const ARTICLE_CATEGORIES = new Set(['India', 'World', 'Cities', 'Movies', 'Election', 'Business', 'Technology', 'Sports', 'Entertainment', 'Education', 'Lifestyle'])
+const ARTICLE_CATEGORIES = new Set(PUBLISHABLE_CATEGORIES)
 let database
 let databaseReady
 

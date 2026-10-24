@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Home as HomeIcon, Info, Phone, MapPin, Film, Vote, Globe, BarChart3, Settings, Trophy, Drama, GraduationCap, Heart, ChevronLeft, ChevronRight, Clock, ArrowRight, ArrowUpRight, TrendingUp, CalendarDays, BookOpen, Radio } from 'lucide-react'
+import { Home as HomeIcon, Info, Phone, MapPin, Film, Vote, Globe, Landmark, BarChart3, Settings, Trophy, Drama, GraduationCap, Heart, ChevronLeft, ChevronRight, Clock, ArrowRight, ArrowUpRight, TrendingUp, CalendarDays, BookOpen, Radio } from 'lucide-react'
 import { SectionTitle, Row, StoryLink } from '../components/Bits.jsx'
 import NewsDateFilter from '../components/NewsDateFilter.jsx'
 import PageMeta from '../components/PageMeta.jsx'
@@ -12,6 +12,7 @@ const CATEGORY_ICONS = {
   Cities: MapPin,
   Movies: Film,
   Election: Vote,
+  Politics: Landmark,
   Business: BarChart3,
   Technology: Settings,
   Sports: Trophy,
@@ -26,7 +27,7 @@ const QUICK = [
     .sort((first, second) => first.localeCompare(second))
     .map((label) => ({
       label,
-      Icon: CATEGORY_ICONS[label],
+      Icon: CATEGORY_ICONS[label] || Globe,
       color: '#245bd5',
       to: `/category/${slugify(label)}`,
       category: true,

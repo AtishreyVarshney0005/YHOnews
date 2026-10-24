@@ -1,6 +1,10 @@
+export { CATEGORIES, PUBLISHABLE_CATEGORIES } from '../shared/categories.js'
+
+export const WHATSAPP_CONTACT_NUMBER = '919411059459'
+export const WHATSAPP_CONTACT_MESSAGE = 'Hello YHO News Team, I am interested in publishing my news on your platform. Please share the details and publishing charges. Thank you!'
+export const WHATSAPP_CONTACT_URL = `https://wa.me/${WHATSAPP_CONTACT_NUMBER}?text=${encodeURIComponent(WHATSAPP_CONTACT_MESSAGE)}`
+
 export const img = (seed, width = 600, height = 400) => `https://picsum.photos/seed/${seed}/${width}/${height}`
-export const CATEGORIES = ['India', 'World', 'Cities', 'Movies', 'Election', 'Politics', 'Business', 'Technology', 'Sports', 'Entertainment', 'Education', 'Health', 'Lifestyle']
-export const PUBLISHABLE_CATEGORIES = CATEGORIES.filter((category) => !['Politics', 'Health'].includes(category))
 export const slugify = (category) => category.toLowerCase()
 
 const ARTICLE_CONTENT_TAGS = new Set(['A', 'B', 'BLOCKQUOTE', 'BR', 'DIV', 'EM', 'H2', 'H3', 'I', 'LI', 'OL', 'P', 'S', 'STRIKE', 'STRONG', 'U', 'UL'])
