@@ -7,12 +7,17 @@ import PageMeta from '../components/PageMeta.jsx'
 
 function getTranslationBlocks(contentHtml) {
   const parsed = new DOMParser().parseFromString(contentHtml, 'text/html')
-  return [...parsed.body.querySelectorAll('h2, h3, p, blockquote, li')]
+  const blocks = [...parsed.body.querySelectorAll('h2, h3, p, blockquote, li')]
     .map((element) => ({
       type: ['H2', 'H3'].includes(element.tagName) ? 'heading' : 'paragraph',
       text: element.textContent.trim(),
     }))
     .filter((block) => block.text)
+
+  if (blocks.length) return blocks
+
+  const plainText = parsed.body.textContent.replace(/\s+/g, ' ').trim()
+  return plainText ? [{ type: 'paragraph', text: plainText }] : []
 }
 
 export default function Article() {
@@ -71,8 +76,6 @@ export default function Article() {
     })
       .then(async (response) => {
         const data = await response.json()
-        if (!response.ok) throw new Error(data.message || 'Translation failed.')
-        if (data.translations?.length !== blocks.length + 1) throw new Error('Translation failed.')
         setTranslation({
           title: data.translations[0],
           blocks: blocks.map((block, index) => ({ ...block, text: data.translations[index + 1] })),
@@ -98,13 +101,11 @@ export default function Article() {
   if (!a) return <p className="empty card">Article not found. <Link to={`/${rangeQuery}`}>Back to homepage</Link></p>
 
   const tags = a.tags || [a.tag, a.category]
-  const articleDescription = a.summary || a.title
-
   return (
     <>
       <PageMeta
         title={`${a.title} | YHO News`}
-        description={articleDescription}
+        description={a.summary || a.title}
         path={`/article/${encodeURIComponent(a.id)}`}
         image={a.image}
         type="article"

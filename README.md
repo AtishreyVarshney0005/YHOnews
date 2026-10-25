@@ -12,11 +12,11 @@ Routes: `/` home, `/category/:slug`, `/article/:id`, `/search?q=`, `/about`, `/c
 - The homepage and categories display stories written and published manually through the admin panel. No external News API or weather API key is needed.
 - The navigation and admin publishing categories include India, World, Cities, Movies, Election, Politics, Business, Technology, Sports, Entertainment, Education and Lifestyle.
 - Admin login, article management, and image delivery use the project's internal API. Production article storage uses Neon Postgres; local development uses `data/articles.json`.
-- The article sidebar provides a Hindi translation using MyMemory, with Google Translate as a fallback when MyMemory is unavailable; only the article currently being viewed is sent to the translation provider. Set `MYMEMORY_EMAIL` to a contact email you consent to share with MyMemory to increase its daily translation quota.
+- The article sidebar provides a Hindi translation using MyMemory with Google Translate as fallback; only the article currently being viewed is sent to the translation provider. Set `MYMEMORY_EMAIL` to identify your MyMemory quota.
 - Public pages load as separate JavaScript chunks, use page-specific metadata and article structured data, and reveal content as readers scroll. Scroll effects respect reduced-motion preferences.
 - `public/robots.txt` and the `/sitemap.xml` endpoint provide search-engine crawl guidance and include published article URLs.
 - Set `PUBLIC_SITE_URL` to the public canonical origin if it differs from `https://yhonewsindia.onrender.com`.
-- Keep `DATABASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_SESSION_SECRET` private. Render provides the session secret from `render.yaml`; set the database URL and admin credentials in the Render dashboard. `MYMEMORY_EMAIL` is optional and is sent to MyMemory for translation quota identification.
+- Keep `DATABASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_SESSION_SECRET` private. Render provides the session secret from `render.yaml`; set the database URL, admin credentials, and optional `MYMEMORY_EMAIL` in the Render dashboard.
 
 ## Deploying to Render
 
