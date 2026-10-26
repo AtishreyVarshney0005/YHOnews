@@ -15,9 +15,10 @@ const VALUES = [
 ]
 
 const TEAM_MEMBERS = [
+  { name: 'Naveen Kumar Gupta', position: 'Founder & Owner' },
   { name: 'Bhanu Prakash Gupta', position: 'District Correspondent at Aligarh', image: team01 },
   { name: 'Neeraj Saini', position: 'District Correspondent at Haridwar', image: team02 },
-  { name: 'Mohit Verma', position: 'Reporter', image: team03 }    
+  { name: 'Mohit Verma', position: 'Reporter', image: team03 }
 ]
 
 export default function About() {
@@ -105,8 +106,8 @@ export default function About() {
         </div>
         <div className="team-members">
           {TEAM_MEMBERS.map(({ name, position, image }) => (
-            <article key={name} className="card team-member about-reveal">
-              <img src={image} alt={name} />
+            <article key={name} className={`card team-member${image ? '' : ' team-member-no-image'} about-reveal`}>
+              {image && <img src={image} alt={name} />}
               <div>
                 <h3>{name}</h3>
                 <p>{position}</p>

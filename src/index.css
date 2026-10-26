@@ -310,11 +310,12 @@ button { font: inherit; cursor: pointer; }
 .about-value-icon { position: relative; z-index: 1; display: grid; width: 46px; height: 46px; place-items: center; border: 1px solid rgba(223,36,52,.13); border-radius: 15px; background: linear-gradient(145deg, #fff, #fde8eb); box-shadow: 0 5px 12px rgba(223,36,52,.11); color: var(--red); }
 .value h3 { font-size: 17px; } .value p { color: #52627f; font-size: 13px; line-height: 1.6; }
 .about-team { padding: 28px; border: 1px solid #e8edf4; border-radius: 18px; background: #fff; }
-.team-members { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
+.team-members { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
 .team-member { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px; border: 1px solid #edf0f5; border-radius: 14px; background: linear-gradient(145deg, #fff, #f7f9fe); text-align: center; transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease; }
 .team-member:hover { transform: translateY(-6px); border-color: #cbd9ee; box-shadow: 0 16px 30px rgba(22,38,66,.12); }
 .team-member img { width: 148px; height: 148px; flex: none; border: 4px solid #fff; border-radius: 50%; object-fit: cover; object-position: center; box-shadow: 0 8px 18px rgba(22,38,66,.14); transition: transform .22s ease, box-shadow .22s ease; }
 .team-member:hover img { transform: scale(1.04); box-shadow: 0 11px 22px rgba(22,38,66,.2); }
+.team-member-no-image { min-height: 280px; justify-content: center; }
 .team-member h3 { margin-bottom: 6px; color: var(--navy); font-size: 18px; }
 .team-member p { color: #52627f; font-size: 14px; line-height: 1.6; }
 
