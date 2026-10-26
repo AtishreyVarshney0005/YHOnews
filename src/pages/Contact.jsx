@@ -66,7 +66,17 @@ export default function Contact() {
           </div>
           <div className="info-item">
             <span className="round solid" aria-hidden="true"><MapPin /></span>
-            <div><h3>Visit us</h3><p>Young Helps Organization, Marris Tower, Center Point<br />Aligarh, Uttar Pradesh 202001</p></div>
+            <div className="office-locations">
+              <h3>Our Offices</h3>
+              <div className="office-location">
+                <h4>Aligarh Office</h4>
+                <p>Young Helps Organization, Marris Tower, Center Point<br />Aligarh, Uttar Pradesh 202001</p>
+              </div>
+              <div className="office-location">
+                <h4>Haridwar Office</h4>
+                <p>Haridwar, Uttarakhand</p>
+              </div>
+            </div>
           </div>
         </aside>
 

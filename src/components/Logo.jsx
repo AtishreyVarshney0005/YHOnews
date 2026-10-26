@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom'
-import logoImage from '../../logo.jpeg'
+
+const logoImage = '/yho-logo.png'
 
 export default function Logo({ light = false }) {
   const [params] = useSearchParams()

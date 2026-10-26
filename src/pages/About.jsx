@@ -2,12 +2,22 @@ import { useEffect, useRef } from 'react'
 import { Target, Eye, ShieldCheck, Handshake, Scale, Users, Newspaper } from 'lucide-react'
 import { img } from '../data.js'
 import PageMeta from '../components/PageMeta.jsx'
+import team01 from '../../Team01.png'
+import team02 from '../../Team02.png'
+import team03 from '../../Team03.png'
+
 
 const VALUES = [
   { Icon: ShieldCheck, title: 'Accuracy', text: 'We work to make every update clear, careful and grounded in credible information.' },
   { Icon: Handshake, title: 'Integrity', text: 'We value honest reporting and take our responsibility to readers seriously.' },
   { Icon: Scale, title: 'Fairness', text: 'We aim to give important stories context and represent different perspectives.' },
   { Icon: Users, title: 'Reader First', text: 'We make the news easy to explore, understand and share.' },
+]
+
+const TEAM_MEMBERS = [
+  { name: 'Bhanu Prakash Gupta', position: 'District Correspondent at Aligarh', image: team01 },
+  { name: 'Neeraj Saini', position: 'District Correspondent at Haridwar', image: team02 },
+  { name: 'Mohit Verma', position: 'Reporter', image: team03 }    
 ]
 
 export default function About() {
@@ -83,6 +93,25 @@ export default function About() {
               <h3>{title}</h3>
               <p>{text}</p>
             </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="about-team">
+        <div className="about-section-heading">
+          <span className="about-card-kicker">THE PEOPLE BEHIND THE STORIES</span>
+          <h2 className="accent">Our Team Members</h2>
+          <p>Meet the correspondents bringing local stories to our readers.</p>
+        </div>
+        <div className="team-members">
+          {TEAM_MEMBERS.map(({ name, position, image }) => (
+            <article key={name} className="card team-member about-reveal">
+              <img src={image} alt={name} />
+              <div>
+                <h3>{name}</h3>
+                <p>{position}</p>
+              </div>
+            </article>
           ))}
         </div>
       </section>

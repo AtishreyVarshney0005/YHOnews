@@ -309,6 +309,14 @@ button { font: inherit; cursor: pointer; }
 .value:hover { transform: translateY(-4px); border-color: #dce4f1; box-shadow: 0 14px 26px rgba(22,38,66,.08); }
 .about-value-icon { position: relative; z-index: 1; display: grid; width: 46px; height: 46px; place-items: center; border: 1px solid rgba(223,36,52,.13); border-radius: 15px; background: linear-gradient(145deg, #fff, #fde8eb); box-shadow: 0 5px 12px rgba(223,36,52,.11); color: var(--red); }
 .value h3 { font-size: 17px; } .value p { color: #52627f; font-size: 13px; line-height: 1.6; }
+.about-team { padding: 28px; border: 1px solid #e8edf4; border-radius: 18px; background: #fff; }
+.team-members { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
+.team-member { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px; border: 1px solid #edf0f5; border-radius: 14px; background: linear-gradient(145deg, #fff, #f7f9fe); text-align: center; transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease; }
+.team-member:hover { transform: translateY(-6px); border-color: #cbd9ee; box-shadow: 0 16px 30px rgba(22,38,66,.12); }
+.team-member img { width: 148px; height: 148px; flex: none; border: 4px solid #fff; border-radius: 50%; object-fit: cover; object-position: center; box-shadow: 0 8px 18px rgba(22,38,66,.14); transition: transform .22s ease, box-shadow .22s ease; }
+.team-member:hover img { transform: scale(1.04); box-shadow: 0 11px 22px rgba(22,38,66,.2); }
+.team-member h3 { margin-bottom: 6px; color: var(--navy); font-size: 18px; }
+.team-member p { color: #52627f; font-size: 14px; line-height: 1.6; }
 
 /* contact */
 .contact-heading { margin-bottom: 22px; }
@@ -325,6 +333,9 @@ button { font: inherit; cursor: pointer; }
 .info-item .round.solid svg { width: 22px; height: 22px; }
 .info-item h3 { font-size: 16px; margin-bottom: 3px; }
 .info-item p, .info-item a { color: #52627f; font-size: 14px; line-height: 1.5; }
+.office-locations { min-width: 0; }
+.office-location { margin-top: 12px; }
+.office-location h4 { margin-bottom: 3px; color: var(--navy); font-size: 14px; }
 .info-item a:hover { color: var(--red); text-decoration: underline; }
 .form { padding: 28px; display: flex; flex-direction: column; gap: 16px; }
 .form-heading { padding-bottom: 2px; }
@@ -994,6 +1005,8 @@ th { background: #f5f7fb; }
   .about-image-note { right: 0; bottom: 0; }
   .about-purpose { grid-template-columns: 1fr; gap: 12px; }
   .about-values { padding: 22px 18px; }
+  .about-team { padding: 22px 18px; }
+  .team-members { grid-template-columns: 1fr; gap: 12px; }
   .values { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .home-feed-section { padding: 18px; }
   .catpage { padding: 18px; }
