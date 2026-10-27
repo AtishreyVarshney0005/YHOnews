@@ -1,14 +1,10 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
-import { createRequire } from 'node:module'
 import { translateTextsToHindi } from '../server/translation.js'
 import { createSitemapXml } from '../server/sitemap.js'
 import { PUBLISHABLE_CATEGORIES } from '../shared/categories.js'
+import { articleData, execute, mysqlDate, query } from '../server/database.js'
 
-const require = createRequire(import.meta.url)
-const seedArticles = require('../data/articles.json')
 const ARTICLE_CATEGORIES = new Set(PUBLISHABLE_CATEGORIES)
-let database
-let databaseReady
 
 function sendJson(response, status, body, headers = {}) {
   response.statusCode = status
@@ -81,94 +77,74 @@ function secureEquals(first, second) {
   return firstBuffer.length === secondBuffer.length && timingSafeEqual(firstBuffer, secondBuffer)
 }
 
-async function getDatabase() {
-  if (!process.env.DATABASE_URL) throw Object.assign(new Error('DATABASE_URL is not configured.'), { status: 503 })
-  if (!database) {
-    const { neon } = await import('@neondatabase/serverless')
-    database = neon(process.env.DATABASE_URL)
-  }
-  if (!databaseReady) {
-    databaseReady = (async () => {
-      await database`CREATE TABLE IF NOT EXISTS yho_news_articles (
-        id TEXT PRIMARY KEY,
-        data JSONB NOT NULL,
-        status TEXT NOT NULL,
-        category TEXT NOT NULL,
-        published_at TIMESTAMPTZ,
-        updated_at TIMESTAMPTZ NOT NULL,
-        view_count INTEGER NOT NULL DEFAULT 0
-      )`
-      await database`ALTER TABLE yho_news_articles ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NULL DEFAULT 0`
-      const [{ count }] = await database`SELECT COUNT(*)::int AS count FROM yho_news_articles`
-      if (count === 0 && Array.isArray(seedArticles)) {
-        for (let index = 0; index < seedArticles.length; index += 8) {
-          const batch = seedArticles.slice(index, index + 8).filter((article) => article?.id)
-          await Promise.all(batch.map((article) => database`INSERT INTO yho_news_articles (id, data, status, category, published_at, updated_at)
-            VALUES (${article.id}, ${JSON.stringify(article)}::jsonb, ${article.status || 'Published'}, ${article.category || ''},
-              ${article.publishedAt || null}, ${article.updatedAt || article.createdAt || new Date().toISOString()})
-            ON CONFLICT (id) DO NOTHING`))
-        }
-      }
-    })().catch((error) => {
-      databaseReady = null
-      throw error
-    })
-  }
-  await databaseReady
-  return database
+function getApiError(error) {
+  if (error.status) return { status: error.status, message: error.message }
+
+  console.error('Article API request failed:', error)
+  return { status: 500, message: 'News is temporarily unavailable. Please try again shortly.' }
 }
 
 async function readArticles() {
-  const sql = await getDatabase()
-  const rows = await sql`SELECT data, view_count FROM yho_news_articles ORDER BY updated_at DESC`
-  return rows.map(({ data, view_count }) => ({ ...data, viewCount: view_count }))
+  const rows = await query('SELECT data, view_count FROM yho_news_articles ORDER BY updated_at DESC')
+  return rows.map(({ data, view_count }) => ({ ...articleData(data), viewCount: view_count }))
 }
 
 async function readPublishedArticleAndCountView(id) {
-  const sql = await getDatabase()
-  const rows = await sql`UPDATE yho_news_articles
-    SET view_count = view_count + 1
-    WHERE id = ${id} AND status = 'Published' AND category = ANY(${[...ARTICLE_CATEGORIES]})
-    RETURNING data - 'image' AS data,
-      CASE WHEN data->>'image' LIKE 'data:image/%' THEN NULL ELSE data->>'image' END AS image_url,
-      (data->>'image' LIKE 'data:image/%') AS has_embedded_image,
-      view_count`
+  const categories = [...ARTICLE_CATEGORIES]
+  const placeholders = categories.map(() => '?').join(', ')
+  const result = await execute(
+    `UPDATE yho_news_articles SET view_count = view_count + 1
+     WHERE id = ? AND status = 'Published' AND category IN (${placeholders})`,
+    [id, ...categories],
+  )
+  if (!result.affectedRows) return null
+
+  const rows = await query('SELECT data, view_count FROM yho_news_articles WHERE id = ?', [id])
   const row = rows[0]
-  return row ? {
-    ...row.data,
-    image: row.has_embedded_image
-      ? publicImagePath(row.data.id, row.data.updatedAt || row.data.createdAt)
-      : row.image_url || '',
+  if (!row) return null
+  const article = articleData(row.data)
+  const image = article.image || ''
+  return {
+    ...article,
+    image: image.startsWith('data:image/')
+      ? publicImagePath(article.id, article.updatedAt || article.createdAt)
+      : image,
     viewCount: row.view_count,
-  } : null
+  }
 }
 
 async function readPublishedArticleImage(id) {
-  const sql = await getDatabase()
-  const rows = await sql`SELECT data->>'image' AS image FROM yho_news_articles
-    WHERE id = ${id} AND status = 'Published' AND category = ANY(${[...ARTICLE_CATEGORIES]})`
-  return rows[0]?.image || null
+  const categories = [...ARTICLE_CATEGORIES]
+  const placeholders = categories.map(() => '?').join(', ')
+  const rows = await query(
+    `SELECT data FROM yho_news_articles
+     WHERE id = ? AND status = 'Published' AND category IN (${placeholders})`,
+    [id, ...categories],
+  )
+  return rows[0] ? articleData(rows[0].data).image || null : null
 }
 
 async function insertArticle(article) {
-  const sql = await getDatabase()
-  await sql`INSERT INTO yho_news_articles (id, data, status, category, published_at, updated_at)
-    VALUES (${article.id}, ${JSON.stringify(article)}::jsonb, ${article.status}, ${article.category}, ${article.publishedAt}, ${article.updatedAt})`
+  await execute(
+    `INSERT INTO yho_news_articles (id, data, status, category, published_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [article.id, JSON.stringify(article), article.status, article.category, mysqlDate(article.publishedAt), mysqlDate(article.updatedAt)],
+  )
 }
 
 async function updateArticle(article) {
-  const sql = await getDatabase()
-  const rows = await sql`UPDATE yho_news_articles
-    SET data = ${JSON.stringify(article)}::jsonb, status = ${article.status}, category = ${article.category},
-      published_at = ${article.publishedAt}, updated_at = ${article.updatedAt}
-    WHERE id = ${article.id} RETURNING id`
-  return rows.length > 0
+  const result = await execute(
+    `UPDATE yho_news_articles
+     SET data = ?, status = ?, category = ?, published_at = ?, updated_at = ?
+     WHERE id = ?`,
+    [JSON.stringify(article), article.status, article.category, mysqlDate(article.publishedAt), mysqlDate(article.updatedAt), article.id],
+  )
+  return result.affectedRows > 0
 }
 
 async function deleteArticle(id) {
-  const sql = await getDatabase()
-  const rows = await sql`DELETE FROM yho_news_articles WHERE id = ${id} RETURNING id`
-  return rows.length > 0
+  const result = await execute('DELETE FROM yho_news_articles WHERE id = ?', [id])
+  return result.affectedRows > 0
 }
 
 function isAuthenticated(request) {
@@ -220,11 +196,15 @@ export default async function handler(request, response) {
     const adminArticles = pathname.match(/^\/api\/admin\/articles(?:\/([^/]+))?$/)
 
     if (pathname === '/api/sitemap' && request.method === 'GET') {
-      const sql = await getDatabase()
-      const rows = await sql`SELECT id, updated_at AS "updatedAt", published_at AS "publishedAt"
-        FROM yho_news_articles
-        WHERE status = 'Published' AND category = ANY(${[...ARTICLE_CATEGORIES]})
-        ORDER BY published_at DESC`
+      const categories = [...ARTICLE_CATEGORIES]
+      const placeholders = categories.map(() => '?').join(', ')
+      const rows = await query(
+        `SELECT id, updated_at AS updatedAt, published_at AS publishedAt
+         FROM yho_news_articles
+         WHERE status = 'Published' AND category IN (${placeholders})
+         ORDER BY published_at DESC`,
+        categories,
+      )
       return sendSitemap(response, createSitemapXml(rows))
     }
 
@@ -269,12 +249,20 @@ export default async function handler(request, response) {
     }
 
     if (pathname === '/api/articles' && request.method === 'GET') {
-      const sql = await getDatabase()
-      const rows = await sql`SELECT data - 'image' AS data, data->>'image' AS image, view_count
-        FROM yho_news_articles
-        WHERE status = 'Published' AND category = ANY(${[...ARTICLE_CATEGORIES]})
-        ORDER BY updated_at DESC`
-      const articles = rows.map(({ data, image, view_count }) => toPublicArticle({ ...data, viewCount: view_count }, image))
+      const categories = [...ARTICLE_CATEGORIES]
+      const placeholders = categories.map(() => '?').join(', ')
+      const rows = await query(
+        `SELECT data, view_count FROM yho_news_articles
+         WHERE status = 'Published' AND category IN (${placeholders})
+         ORDER BY updated_at DESC`,
+        categories,
+      )
+      const articles = rows.map(({ data, view_count }) => {
+        const article = articleData(data)
+        const image = article.image
+        delete article.image
+        return toPublicArticle({ ...article, viewCount: view_count }, image)
+      })
       return sendJson(response, 200, { articles }, { 'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600' })
     }
 
@@ -309,9 +297,7 @@ export default async function handler(request, response) {
 
     return sendJson(response, 405, { message: 'Method not allowed.' }, { Allow: 'GET, POST, PUT, DELETE' })
   } catch (error) {
-    if (!error.status) console.error('Article API request failed:', error)
-    return sendJson(response, error.status || 500, {
-      message: error.status ? error.message : 'News is temporarily unavailable. Please try again shortly.',
-    })
+    const apiError = getApiError(error)
+    return sendJson(response, apiError.status, { message: apiError.message })
   }
 }

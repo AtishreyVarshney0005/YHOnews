@@ -6,12 +6,18 @@ import path from 'node:path'
 import { translateTextsToHindi } from './server/translation.js'
 import { createSitemapXml } from './server/sitemap.js'
 import { PUBLISHABLE_CATEGORIES } from './shared/categories.js'
+import { articleData, execute, getDatabase as getMysqlDatabase, mysqlDate, query } from './server/database.js'
 
-function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv = [] }) {
+function getApiError(error) {
+	if (error.status) return { status: error.status, message: error.message }
+
+	console.error('Article API request failed:', error)
+	return { status: 500, message: 'News is temporarily unavailable. Please try again shortly.' }
+}
+
+function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, databaseConfig, requiredEnv = [] }) {
 	const storageFile = path.resolve(process.cwd(), 'data/articles.json')
 	const allowedCategories = new Set(PUBLISHABLE_CATEGORIES)
-	let database
-	let databaseReady
 	let writeQueue = Promise.resolve()
 
 	const sendJson = (response, status, body, headers = {}) => {
@@ -68,110 +74,99 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv 
 	}
 
 	const getDatabase = async () => {
-		if (!process.env.DATABASE_URL) return null
-		if (!database) {
-			const { neon } = await import('@neondatabase/serverless')
-			database = neon(process.env.DATABASE_URL)
-		}
-		if (!databaseReady) {
-			databaseReady = (async () => {
-				await database`CREATE TABLE IF NOT EXISTS yho_news_articles (
-					id TEXT PRIMARY KEY,
-					data JSONB NOT NULL,
-					status TEXT NOT NULL,
-					category TEXT NOT NULL,
-					published_at TIMESTAMPTZ,
-					updated_at TIMESTAMPTZ NOT NULL,
-					view_count INTEGER NOT NULL DEFAULT 0
-				)`
-				await database`ALTER TABLE yho_news_articles ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NULL DEFAULT 0`
-				const [{ count }] = await database`SELECT COUNT(*)::int AS count FROM yho_news_articles`
-				if (count === 0) {
-					const articles = await readLocalArticles()
-					for (let index = 0; index < articles.length; index += 8) {
-						const batch = articles.slice(index, index + 8).filter((article) => article?.id)
-						await Promise.all(batch.map((article) => database`INSERT INTO yho_news_articles (id, data, status, category, published_at, updated_at)
-							VALUES (${article.id}, ${JSON.stringify(article)}::jsonb, ${article.status || 'Published'}, ${article.category || ''},
-								${article.publishedAt || null}, ${article.updatedAt || article.createdAt || new Date().toISOString()})
-							ON CONFLICT (id) DO NOTHING`))
-					}
-				}
-			})().catch((error) => {
-				databaseReady = null
-				throw error
-			})
-		}
-		await databaseReady
-		return database
+		const configured = ['MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DATABASE'].some((name) => databaseConfig[name])
+		return configured ? getMysqlDatabase(databaseConfig) : null
 	}
 
 	const readArticles = async () => {
-		const sql = await getDatabase()
-		if (!sql) return readLocalArticles()
-		const rows = await sql`SELECT data, view_count FROM yho_news_articles ORDER BY updated_at DESC`
-		return rows.map(({ data, view_count }) => ({ ...data, viewCount: view_count }))
+		const database = await getDatabase()
+		if (!database) return readLocalArticles()
+		const rows = await query('SELECT data, view_count FROM yho_news_articles ORDER BY updated_at DESC')
+		return rows.map(({ data, view_count }) => ({ ...articleData(data), viewCount: view_count }))
 	}
 
 	const readPublishedArticles = async () => {
-		const sql = await getDatabase()
-		if (!sql) {
+		const database = await getDatabase()
+		if (!database) {
 			return (await readLocalArticles())
 				.filter((article) => article.status === 'Published' && allowedCategories.has(article.category))
 				.map(toPublicArticle)
 		}
-		const rows = await sql`SELECT data - 'image' AS data, data->>'image' AS image, view_count
-			FROM yho_news_articles
-			WHERE status = 'Published' AND category = ANY(${[...allowedCategories]})
-			ORDER BY updated_at DESC`
-		return rows.map(({ data, image, view_count }) => toPublicArticle({ ...data, viewCount: view_count, image }))
+		const categories = [...allowedCategories]
+		const placeholders = categories.map(() => '?').join(', ')
+		const rows = await query(
+			`SELECT data, view_count FROM yho_news_articles
+			 WHERE status = 'Published' AND category IN (${placeholders})
+			 ORDER BY updated_at DESC`,
+			categories,
+		)
+		return rows.map(({ data, view_count }) => {
+			const article = articleData(data)
+			const image = article.image
+			delete article.image
+			return toPublicArticle({ ...article, viewCount: view_count, image })
+		})
 	}
 
 	const readPublishedArticleImage = async (id) => {
-		const sql = await getDatabase()
-		if (sql) {
-			const rows = await sql`SELECT data->>'image' AS image FROM yho_news_articles
-				WHERE id = ${id} AND status = 'Published' AND category = ANY(${[...allowedCategories]})`
-			return rows[0]?.image || null
+		const database = await getDatabase()
+		if (database) {
+			const categories = [...allowedCategories]
+			const placeholders = categories.map(() => '?').join(', ')
+			const rows = await query(
+				`SELECT data FROM yho_news_articles
+				 WHERE id = ? AND status = 'Published' AND category IN (${placeholders})`,
+				[id, ...categories],
+			)
+			return rows[0] ? articleData(rows[0].data).image || null : null
 		}
 		const article = (await readLocalArticles()).find((item) => item.id === id && item.status === 'Published' && allowedCategories.has(item.category))
 		return article?.image || null
 	}
 
 	const readPublishedArticleAndCountView = async (id) => {
-		const sql = await getDatabase()
-		if (sql) {
-			const rows = await sql`UPDATE yho_news_articles
-				SET view_count = view_count + 1
-				WHERE id = ${id} AND status = 'Published' AND category = ANY(${[...allowedCategories]})
-				RETURNING data - 'image' AS data,
-					CASE WHEN data->>'image' LIKE 'data:image/%' THEN NULL ELSE data->>'image' END AS image_url,
-					(data->>'image' LIKE 'data:image/%') AS has_embedded_image,
-					view_count`
+		const database = await getDatabase()
+		if (database) {
+			const categories = [...allowedCategories]
+			const placeholders = categories.map(() => '?').join(', ')
+			const result = await execute(
+				`UPDATE yho_news_articles SET view_count = view_count + 1
+				 WHERE id = ? AND status = 'Published' AND category IN (${placeholders})`,
+				[id, ...categories],
+			)
+			if (!result.affectedRows) return null
+			const rows = await query('SELECT data, view_count FROM yho_news_articles WHERE id = ?', [id])
 			const row = rows[0]
-			return row ? {
-				...row.data,
-				image: row.has_embedded_image
-					? publicImagePath(row.data.id, row.data.updatedAt || row.data.createdAt)
-					: row.image_url || '',
+			if (!row) return null
+			const article = articleData(row.data)
+			const image = article.image || ''
+			return {
+				...article,
+				image: image.startsWith('data:image/')
+					? publicImagePath(article.id, article.updatedAt || article.createdAt)
+					: image,
 				viewCount: row.view_count,
-			} : null
+			}
 		}
 		const article = (await readLocalArticles()).find((item) => item.id === id && item.status === 'Published' && allowedCategories.has(item.category))
 		return article ? { ...article, image: publicImageUrl(article.id, article.image, article.updatedAt || article.createdAt) } : null
 	}
 
 	const writeArticles = async (articles, previous = []) => {
-		const sql = await getDatabase()
-		if (sql) {
+		const database = await getDatabase()
+		if (database) {
 			const currentIds = new Set(articles.map(({ id }) => id))
 			const previousById = new Map(previous.map((article) => [article.id, article]))
 			const writes = articles.filter((article) => JSON.stringify(previousById.get(article.id)) !== JSON.stringify(article))
 			await Promise.all([
-				...previous.filter(({ id }) => !currentIds.has(id)).map(({ id }) => sql`DELETE FROM yho_news_articles WHERE id = ${id}`),
-				...writes.map((article) => sql`INSERT INTO yho_news_articles (id, data, status, category, published_at, updated_at)
-					VALUES (${article.id}, ${JSON.stringify(article)}::jsonb, ${article.status}, ${article.category}, ${article.publishedAt || null}, ${article.updatedAt})
-					ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, status = EXCLUDED.status, category = EXCLUDED.category,
-						published_at = EXCLUDED.published_at, updated_at = EXCLUDED.updated_at`),
+				...previous.filter(({ id }) => !currentIds.has(id)).map(({ id }) => execute('DELETE FROM yho_news_articles WHERE id = ?', [id])),
+				...writes.map((article) => execute(
+					`INSERT INTO yho_news_articles (id, data, status, category, published_at, updated_at)
+					 VALUES (?, ?, ?, ?, ?, ?)
+					 ON DUPLICATE KEY UPDATE data = VALUES(data), status = VALUES(status), category = VALUES(category),
+					 published_at = VALUES(published_at), updated_at = VALUES(updated_at)`,
+					[article.id, JSON.stringify(article), article.status, article.category, mysqlDate(article.publishedAt), mysqlDate(article.updatedAt)],
+				)),
 			])
 			return
 		}
@@ -267,12 +262,17 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv 
 
 		try {
 			if (sitemap && request.method === 'GET') {
-				const sql = await getDatabase()
-				const articles = sql
-					? await sql`SELECT id, updated_at AS "updatedAt", published_at AS "publishedAt"
-						FROM yho_news_articles
-						WHERE status = 'Published' AND category = ANY(${[...allowedCategories]})
-						ORDER BY published_at DESC`
+				const database = await getDatabase()
+				const categories = [...allowedCategories]
+				const placeholders = categories.map(() => '?').join(', ')
+				const articles = database
+					? await query(
+						`SELECT id, updated_at AS updatedAt, published_at AS publishedAt
+						 FROM yho_news_articles
+						 WHERE status = 'Published' AND category IN (${placeholders})
+						 ORDER BY published_at DESC`,
+						categories,
+					)
 					: (await readLocalArticles())
 						.filter((article) => article.status === 'Published' && allowedCategories.has(article.category))
 						.map(({ id, updatedAt, publishedAt }) => ({ id, updatedAt, publishedAt }))
@@ -359,8 +359,8 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv 
 
 			return sendJson(response, 405, { message: 'Method not allowed.' }, { Allow: 'GET, POST, PUT, DELETE' })
 		} catch (error) {
-			if (!error.status) console.error('Article API request failed:', error)
-			return sendJson(response, error.status || 500, { message: error.status ? error.message : 'News is temporarily unavailable. Please try again shortly.' })
+			const apiError = getApiError(error)
+			return sendJson(response, apiError.status, { message: apiError.message })
 		}
 	}
 
@@ -380,8 +380,9 @@ export default defineConfig(({ mode }) => {
 				adminEmail: env.ADMIN_EMAIL,
 				adminPassword: env.ADMIN_PASSWORD,
 				sessionSecret: env.ADMIN_SESSION_SECRET,
+				databaseConfig: { ...env, ...process.env },
 				requiredEnv: mode === 'production'
-					? ['DATABASE_URL', 'ADMIN_EMAIL', 'ADMIN_PASSWORD', 'ADMIN_SESSION_SECRET'].filter((name) => !env[name])
+					? ['MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DATABASE', 'ADMIN_EMAIL', 'ADMIN_PASSWORD', 'ADMIN_SESSION_SECRET'].filter((name) => !env[name] && !process.env[name])
 					: [],
 			}),
 		],

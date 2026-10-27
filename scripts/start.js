@@ -52,7 +52,6 @@ const server = await preview({
 		port,
 		strictPort: true,
 		allowedHosts: [
-			process.env.RENDER_EXTERNAL_HOSTNAME,
 			'yhonews.co.in',
 			'www.yhonews.co.in',
 		].filter(Boolean),
