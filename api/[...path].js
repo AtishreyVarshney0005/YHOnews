@@ -109,7 +109,10 @@ async function getDatabase() {
             ON CONFLICT (id) DO NOTHING`))
         }
       }
-    })()
+    })().catch((error) => {
+      databaseReady = null
+      throw error
+    })
   }
   await databaseReady
   return database
@@ -306,8 +309,9 @@ export default async function handler(request, response) {
 
     return sendJson(response, 405, { message: 'Method not allowed.' }, { Allow: 'GET, POST, PUT, DELETE' })
   } catch (error) {
+    if (!error.status) console.error('Article API request failed:', error)
     return sendJson(response, error.status || 500, {
-      message: error.status ? error.message : 'Unable to process the request.',
+      message: error.status ? error.message : 'News is temporarily unavailable. Please try again shortly.',
     })
   }
 }

@@ -359,7 +359,8 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, requiredEnv 
 
 			return sendJson(response, 405, { message: 'Method not allowed.' }, { Allow: 'GET, POST, PUT, DELETE' })
 		} catch (error) {
-			return sendJson(response, error.status || 500, { message: error.status ? error.message : 'Unable to process the article request.' })
+			if (!error.status) console.error('Article API request failed:', error)
+			return sendJson(response, error.status || 500, { message: error.status ? error.message : 'News is temporarily unavailable. Please try again shortly.' })
 		}
 	}
 
