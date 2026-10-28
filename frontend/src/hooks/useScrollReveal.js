@@ -43,7 +43,7 @@ export default function useScrollReveal(rootRef, routeKey) {
       element.classList.add('scroll-reveal')
       element.style.setProperty('--reveal-delay', `${Math.min(sequence % 5, 4) * 65}ms`)
       sequence += 1
-      if (observer) observer.observe(element)
+      if (observer && element.getBoundingClientRect().top >= window.innerHeight) observer.observe(element)
       else element.classList.add('is-visible')
     }
 

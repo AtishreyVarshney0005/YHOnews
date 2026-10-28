@@ -1,4 +1,4 @@
-import { PUBLISHABLE_CATEGORIES } from '../shared/categories.js'
+import { PUBLISHABLE_CATEGORIES } from '../database/categories.js'
 
 const SITE_URL = (process.env.PUBLIC_SITE_URL || 'https://yhonews.com').replace(/\/+$/, '')
 

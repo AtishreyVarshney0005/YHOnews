@@ -239,7 +239,14 @@ export default function SiteLayout() {
     <>
       <Header />
       <main className="container page" ref={pageRef}>
-        <Suspense fallback={null}><Outlet /></Suspense>
+        <Suspense fallback={(
+          <div className="article-skeleton card" role="status" aria-label="Loading page">
+            <span className="article-skeleton-image" />
+            <span className="article-skeleton-title" />
+            <span className="article-skeleton-line" />
+            <span className="article-skeleton-line short" />
+          </div>
+        )}><Outlet /></Suspense>
       </main>
       <Footer />
     </>

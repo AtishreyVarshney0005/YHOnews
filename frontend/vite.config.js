@@ -1,11 +1,14 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { createSitemapXml } from './server/sitemap.js'
-import { PUBLISHABLE_CATEGORIES } from './shared/categories.js'
-import { articleData, execute, getDatabase as getMysqlDatabase, mysqlDate, query } from './server/database.js'
+import { fileURLToPath } from 'node:url'
+import { createSitemapXml } from '../backend/sitemap.js'
+import { PUBLISHABLE_CATEGORIES } from '../database/categories.js'
+import { articleData, execute, getDatabase as getMysqlDatabase, mysqlDate, query } from '../database/database.js'
+
+const frontendRoot = fileURLToPath(new URL('.', import.meta.url))
 
 const DATABASE_IMAGE_SQL = "CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(data, '$.image')) LIKE 'data:image/%' THEN 1 ELSE JSON_UNQUOTE(JSON_EXTRACT(data, '$.image')) END"
 
@@ -17,9 +20,14 @@ function getApiError(error) {
 }
 
 function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, databaseConfig, requiredEnv = [] }) {
-	const storageFile = path.resolve(process.cwd(), 'data/articles.json')
+	const storageFile = path.resolve(process.cwd(), 'database/articles.json')
 	const allowedCategories = new Set(PUBLISHABLE_CATEGORIES)
 	let writeQueue = Promise.resolve()
+	let localArticlesCache
+	let localArticlesMtime
+	let localArticlesReadPromise
+	let publishedArticlesCache
+	let publishedArticlesMtime
 
 	const sendJson = (response, status, body, headers = {}) => {
 		response.statusCode = status
@@ -66,12 +74,36 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, databaseConf
 	}
 
 	const readLocalArticles = async () => {
-		try {
-			return JSON.parse(await readFile(storageFile, 'utf8'))
-		} catch (error) {
-			if (error.code === 'ENOENT') return []
+		const fileInfo = await stat(storageFile).catch((error) => {
+			if (error.code === 'ENOENT') return null
 			throw error
+		})
+		if (!fileInfo) {
+			localArticlesCache = []
+			localArticlesMtime = undefined
+			return localArticlesCache
 		}
+		if (localArticlesCache && localArticlesMtime === fileInfo.mtimeMs) return localArticlesCache
+		if (localArticlesReadPromise) return localArticlesReadPromise
+
+		localArticlesReadPromise = readFile(storageFile, 'utf8')
+			.then((contents) => {
+				localArticlesCache = JSON.parse(contents)
+				localArticlesMtime = fileInfo.mtimeMs
+				return localArticlesCache
+			})
+			.finally(() => { localArticlesReadPromise = null })
+		return localArticlesReadPromise
+	}
+
+	const readLocalPublishedArticles = async () => {
+		const articles = await readLocalArticles()
+		if (publishedArticlesCache && publishedArticlesMtime === localArticlesMtime) return publishedArticlesCache
+		publishedArticlesCache = articles
+			.filter((article) => article.status === 'Published' && allowedCategories.has(article.category))
+			.map(toPublicArticle)
+		publishedArticlesMtime = localArticlesMtime
+		return publishedArticlesCache
 	}
 
 	const getDatabase = async () => {
@@ -88,11 +120,7 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, databaseConf
 
 	const readPublishedArticles = async () => {
 		const database = await getDatabase()
-		if (!database) {
-			return (await readLocalArticles())
-				.filter((article) => article.status === 'Published' && allowedCategories.has(article.category))
-				.map(toPublicArticle)
-		}
+		if (!database) return readLocalPublishedArticles()
 		const categories = [...allowedCategories]
 		const placeholders = categories.map(() => '?').join(', ')
 		const rows = await query(
@@ -176,6 +204,8 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, databaseConf
 		const tempFile = `${storageFile}.tmp`
 		await writeFile(tempFile, JSON.stringify(articles, null, 2), 'utf8')
 		await rename(tempFile, storageFile)
+		localArticlesCache = articles
+		localArticlesMtime = (await stat(storageFile)).mtimeMs
 	}
 
 	const mutateArticles = (mutate) => {
@@ -370,6 +400,11 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, databaseConf
 export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd(), '')
 	return {
+		root: frontendRoot,
+		build: {
+			emptyOutDir: true,
+			outDir: path.resolve(frontendRoot, '../dist'),
+		},
 		define: {
 			__PUBLIC_SITE_URL__: JSON.stringify(process.env.PUBLIC_SITE_URL || env.PUBLIC_SITE_URL || 'https://yhonews.com'),
 		},

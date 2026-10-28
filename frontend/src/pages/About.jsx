@@ -65,7 +65,7 @@ export default function About() {
           </div>
         </div>
         <div className="about-visual about-reveal">
-          <img src={img('yho-newsroom', 1000, 760)} alt="A newsroom team following the latest stories" />
+          <img src={img('yho-newsroom', 1000, 760)} alt="A newsroom team following the latest stories" decoding="async" />
           <div className="about-image-note"><span className="about-note-icon"><Newspaper size={19} /></span><span><b>News with context</b><small>Stories for a better-informed day</small></span></div>
         </div>
       </section>
@@ -107,7 +107,7 @@ export default function About() {
         <div className="team-members">
           {TEAM_MEMBERS.map(({ name, position, image }) => (
             <article key={name} className={`card team-member${image ? '' : ' team-member-no-image'} about-reveal`}>
-              {image && <img src={image} alt={name} />}
+              {image && <img src={image} alt={name} loading="lazy" decoding="async" />}
               <div>
                 <h3>{name}</h3>
                 <p>{position}</p>

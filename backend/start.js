@@ -1,5 +1,9 @@
 import { preview } from 'vite'
-import apiHandler from '../api/[...path].js'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import apiHandler from './api/[...path].js'
+
+const projectRoot = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '..')
 
 const port = Number(process.env.PORT || 4173)
 const MAX_API_BODY_BYTES = 8 * 1024 * 1024
@@ -46,6 +50,7 @@ const apiPlugin = {
 }
 
 const server = await preview({
+	configFile: path.join(projectRoot, 'frontend', 'vite.config.js'),
 	plugins: [apiPlugin],
 	preview: {
 		host: '0.0.0.0',

@@ -1,8 +1,7 @@
-import { createRequire } from 'node:module'
+import { readFile } from 'node:fs/promises'
 import mysql from 'mysql2/promise'
 
-const require = createRequire(import.meta.url)
-const seedArticles = require('../data/articles.json')
+const seedArticlesFile = new URL('./articles.json', import.meta.url)
 let pool
 let databaseReady
 
@@ -68,7 +67,9 @@ export async function getDatabase(configuration = process.env) {
       }
 
       const [countRows] = await database.execute('SELECT COUNT(*) AS count FROM yho_news_articles')
-      if (Number(countRows[0].count) === 0 && Array.isArray(seedArticles)) {
+      if (Number(countRows[0].count) === 0) {
+        const seedArticles = JSON.parse(await readFile(seedArticlesFile, 'utf8'))
+        if (!Array.isArray(seedArticles)) throw new Error('Article seed data must be a JSON array.')
         for (let index = 0; index < seedArticles.length; index += 8) {
           const batch = seedArticles.slice(index, index + 8).filter((article) => article?.id)
           await Promise.all(batch.map((article) => database.execute(

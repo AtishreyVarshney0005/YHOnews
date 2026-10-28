@@ -1,4 +1,4 @@
-export { CATEGORIES, PUBLISHABLE_CATEGORIES } from '../shared/categories.js'
+export { CATEGORIES, PUBLISHABLE_CATEGORIES } from '../../database/categories.js'
 
 export const WHATSAPP_CONTACT_NUMBER = '919411059459'
 export const WHATSAPP_CONTACT_MESSAGE = 'Hello YHO News Team, I am interested in publishing my news on your platform. Please share the details and publishing charges. Thank you!'

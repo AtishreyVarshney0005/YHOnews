@@ -1,14 +1,14 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
-import { createRequire } from 'node:module'
-import { createSitemapXml } from '../server/sitemap.js'
-import { PUBLISHABLE_CATEGORIES } from '../shared/categories.js'
-import { articleData, execute, mysqlDate, query } from '../server/database.js'
-
-const require = createRequire(import.meta.url)
-const seedArticles = require('../data/articles.json')
+import { readFile } from 'node:fs/promises'
+import { createSitemapXml } from '../sitemap.js'
+import { PUBLISHABLE_CATEGORIES } from '../../database/categories.js'
+import { articleData, execute, mysqlDate, query } from '../../database/database.js'
+import { fileURLToPath } from 'node:url'
 
 const ARTICLE_CATEGORIES = new Set(PUBLISHABLE_CATEGORIES)
 const DATABASE_IMAGE_SQL = "CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(data, '$.image')) LIKE 'data:image/%' THEN 1 ELSE JSON_UNQUOTE(JSON_EXTRACT(data, '$.image')) END"
+const seedArticlesFile = fileURLToPath(new URL('../../database/articles.json', import.meta.url))
+let seedArticlesPromise
 
 function sendJson(response, status, body, headers = {}) {
   response.statusCode = status
@@ -52,7 +52,16 @@ function hasDatabaseConfiguration(configuration = process.env) {
   return required.every((name) => Boolean(configuration[name]))
 }
 
-function fallbackPublishedArticles() {
+async function fallbackPublishedArticles() {
+  if (!seedArticlesPromise) {
+    seedArticlesPromise = readFile(seedArticlesFile, 'utf8')
+      .then((contents) => JSON.parse(contents))
+      .catch((error) => {
+        seedArticlesPromise = null
+        throw error
+      })
+  }
+  const seedArticles = await seedArticlesPromise
   return (Array.isArray(seedArticles) ? seedArticles : [])
     .filter((article) => article && article.status !== 'Draft' && ARTICLE_CATEGORIES.has(String(article.category || '')))
     .map((article) => toPublicArticle({
@@ -235,7 +244,7 @@ export default async function handler(request, response) {
 
     if (publicImage && request.method === 'GET') {
       if (!hasDatabaseConfiguration()) {
-        const fallbackArticle = fallbackPublishedArticles().find((article) => article.id === decodeURIComponent(publicImage[1]))
+        const fallbackArticle = (await fallbackPublishedArticles()).find((article) => article.id === decodeURIComponent(publicImage[1]))
         if (!fallbackArticle?.image) return sendJson(response, 404, { message: 'Article image not found.' })
         const image = String(fallbackArticle.image || '')
         if (!image.startsWith('data:image/')) return sendJson(response, 404, { message: 'Article image not found.' })
@@ -281,7 +290,7 @@ export default async function handler(request, response) {
 
     if (pathname === '/api/articles' && request.method === 'GET') {
       if (!hasDatabaseConfiguration()) {
-        return sendJson(response, 200, { articles: fallbackPublishedArticles() }, { 'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600' })
+        return sendJson(response, 200, { articles: await fallbackPublishedArticles() }, { 'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600' })
       }
       const categories = [...ARTICLE_CATEGORIES]
       const placeholders = categories.map(() => '?').join(', ')
@@ -302,7 +311,7 @@ export default async function handler(request, response) {
     if (publicItem && request.method === 'GET') {
       const id = decodeURIComponent(publicItem[1])
       if (!hasDatabaseConfiguration()) {
-        const fallbackArticle = fallbackPublishedArticles().find((article) => article.id === id)
+        const fallbackArticle = (await fallbackPublishedArticles()).find((article) => article.id === id)
         return fallbackArticle ? sendJson(response, 200, { article: fallbackArticle }) : sendJson(response, 404, { message: 'Article not found.' })
       }
       const article = await readPublishedArticleAndCountView(id)
