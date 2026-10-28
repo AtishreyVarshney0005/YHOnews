@@ -52,8 +52,8 @@ const server = await preview({
 		port,
 		strictPort: true,
 		allowedHosts: [
-			'yhonews.co.in',
-			'www.yhonews.co.in',
+			'yhonews.com',
+			'www.yhonews.com',
 		].filter(Boolean),
 	},
 })

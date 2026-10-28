@@ -1,6 +1,6 @@
 import { PUBLISHABLE_CATEGORIES } from '../shared/categories.js'
 
-const SITE_URL = (process.env.PUBLIC_SITE_URL || 'https://yhonews.co.in').replace(/\/+$/, '')
+const SITE_URL = (process.env.PUBLIC_SITE_URL || 'https://yhonews.com').replace(/\/+$/, '')
 
 const escapeXml = (value) => String(value).replace(/[<>&'"]/g, (character) => ({
   '<': '&lt;',

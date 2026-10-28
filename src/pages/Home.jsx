@@ -4,6 +4,7 @@ import { Home as HomeIcon, Info, Phone, MapPin, Film, Vote, Globe, Landmark, Bar
 import { SectionTitle, Row, StoryLink } from '../components/Bits.jsx'
 import NewsDateFilter from '../components/NewsDateFilter.jsx'
 import PageMeta from '../components/PageMeta.jsx'
+import { siteUrl } from '../site.js'
 import { PUBLISHABLE_CATEGORIES, filterArticlesByDateRange, mapPublishedArticle, normalizeNewsDateRange, slugify } from '../data.js'
 
 const CATEGORY_ICONS = {
@@ -132,8 +133,8 @@ export default function Home() {
           '@context': 'https://schema.org',
           '@type': 'NewsMediaOrganization',
           name: 'YHO News',
-          url: window.location.origin,
-          logo: `${window.location.origin}/logo.png`,
+          url: siteUrl(),
+          logo: siteUrl('/logo.png'),
         }}
       />
       <div className="card home-date-filter">

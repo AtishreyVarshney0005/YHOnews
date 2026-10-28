@@ -1,24 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { Home, Calendar, Clock, Tag, Languages, RefreshCw } from 'lucide-react'
+import { Home, Calendar, Clock, Tag, TrendingUp } from 'lucide-react'
 import { mapPublishedArticle } from '../data.js'
 import Socials from '../components/Socials.jsx'
+import { Row } from '../components/Bits.jsx'
 import PageMeta from '../components/PageMeta.jsx'
-
-function getTranslationBlocks(contentHtml) {
-  const parsed = new DOMParser().parseFromString(contentHtml, 'text/html')
-  const blocks = [...parsed.body.querySelectorAll('h2, h3, p, blockquote, li')]
-    .map((element) => ({
-      type: ['H2', 'H3'].includes(element.tagName) ? 'heading' : 'paragraph',
-      text: element.textContent.trim(),
-    }))
-    .filter((block) => block.text)
-
-  if (blocks.length) return blocks
-
-  const plainText = parsed.body.textContent.replace(/\s+/g, ' ').trim()
-  return plainText ? [{ type: 'paragraph', text: plainText }] : []
-}
+import { siteUrl } from '../site.js'
 
 export default function Article() {
   const { id } = useParams()
@@ -27,14 +14,25 @@ export default function Article() {
   const searchRangeQuery = searchParams.get('range') ? `&range=${encodeURIComponent(searchParams.get('range'))}` : ''
   const [publishedArticle, setPublishedArticle] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [translation, setTranslation] = useState(null)
-  const [translationStatus, setTranslationStatus] = useState('loading')
-  const [translationAttempt, setTranslationAttempt] = useState(0)
+  const [latestArticles, setLatestArticles] = useState([])
+  const [latestStatus, setLatestStatus] = useState('loading')
+  const [latestError, setLatestError] = useState('')
+  const [articleHeight, setArticleHeight] = useState(0)
+  const [visibleLatestCount, setVisibleLatestCount] = useState(0)
+  const [latestFitComplete, setLatestFitComplete] = useState(false)
+  const articleElement = useRef(null)
+  const latestElement = useRef(null)
+  const latestMeasureElement = useRef(null)
+  const lastMeasuredArticleHeight = useRef(0)
 
   useEffect(() => {
     let active = true
     setLoading(true)
     setPublishedArticle(null)
+    setArticleHeight(0)
+    setVisibleLatestCount(0)
+    setLatestFitComplete(false)
+    lastMeasuredArticleHeight.current = 0
     fetch(`/api/articles/${encodeURIComponent(id)}`)
       .then(async (response) => {
         const data = await response.json()
@@ -47,47 +45,95 @@ export default function Article() {
   }, [id])
 
   const a = publishedArticle
+  useEffect(() => {
+    if (!a || !articleElement.current) return undefined
+
+    const observer = new ResizeObserver(([entry]) => {
+      const nextHeight = entry.target.getBoundingClientRect().height
+      if (Math.abs(lastMeasuredArticleHeight.current - nextHeight) < 0.25) return
+      lastMeasuredArticleHeight.current = nextHeight
+      setArticleHeight(nextHeight)
+      setVisibleLatestCount(0)
+      setLatestFitComplete(false)
+    })
+    observer.observe(articleElement.current)
+    const resetLatestLayout = () => {
+      setVisibleLatestCount(0)
+      setLatestFitComplete(false)
+    }
+    window.addEventListener('resize', resetLatestLayout)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', resetLatestLayout)
+    }
+  }, [a])
+
+  useEffect(() => {
+    let active = true
+    setLatestStatus('loading')
+    setLatestArticles([])
+    setVisibleLatestCount(0)
+    setLatestFitComplete(false)
+    fetch('/api/articles')
+      .then(async (response) => {
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.message || 'Latest news is temporarily unavailable.')
+        const articles = (data.articles || [])
+          .map(mapPublishedArticle)
+          .filter((article) => article.id !== id)
+          .sort((first, second) => new Date(second.publishedAt || second.createdAt || 0).getTime() - new Date(first.publishedAt || first.createdAt || 0).getTime())
+        if (active) {
+          setLatestArticles(articles)
+          setLatestError('')
+          setLatestStatus('ready')
+        }
+      })
+      .catch((error) => {
+        if (!active) return
+        setLatestError(error.message || 'Latest news is temporarily unavailable.')
+        setLatestStatus('error')
+      })
+    return () => { active = false }
+  }, [id])
+
+  useLayoutEffect(() => {
+    if (!a || !articleHeight || latestStatus !== 'ready' || !latestElement.current || !latestMeasureElement.current || latestFitComplete) return
+
+    const panel = latestElement.current
+    const heading = panel.querySelector('.article-latest-heading')
+    if (!heading) return
+
+    const panelStyle = window.getComputedStyle(panel)
+    const headingEnd = heading.getBoundingClientRect().bottom - panel.getBoundingClientRect().top
+    const availableHeight = articleHeight
+      - headingEnd
+      - Number.parseFloat(panelStyle.paddingBottom)
+      - Number.parseFloat(panelStyle.borderBottomWidth)
+    let usedHeight = 0
+    let fittingCount = 0
+    for (const row of latestMeasureElement.current.querySelectorAll('.row')) {
+      const rowHeight = row.getBoundingClientRect().height
+      if (usedHeight + rowHeight > availableHeight + 0.5) break
+      usedHeight += rowHeight
+      fittingCount += 1
+    }
+
+    setVisibleLatestCount(fittingCount)
+    setLatestFitComplete(true)
+  }, [a, articleHeight, latestArticles, latestStatus, latestFitComplete])
+
   const structuredData = useMemo(() => a ? ({
     '@context': 'https://schema.org',
     '@type': 'NewsArticle',
     headline: a.title,
     description: a.summary,
-    image: a.image ? [new URL(a.image, window.location.origin).href] : undefined,
+    image: a.image ? [siteUrl(a.image)] : undefined,
     datePublished: a.publishedAt || a.createdAt,
     dateModified: a.updatedAt || a.publishedAt || a.createdAt,
     author: { '@type': 'Organization', name: a.author || 'YHO News' },
-    publisher: { '@type': 'Organization', name: 'YHO News', logo: { '@type': 'ImageObject', url: `${window.location.origin}/logo.png` } },
-    mainEntityOfPage: new URL(`/article/${encodeURIComponent(a.id)}`, window.location.origin).href,
+    publisher: { '@type': 'Organization', name: 'YHO News', logo: { '@type': 'ImageObject', url: siteUrl('/logo.png') } },
+    mainEntityOfPage: siteUrl(`/article/${encodeURIComponent(a.id)}`),
   }) : null, [a])
-
-  useEffect(() => {
-    if (!a) return undefined
-
-    const controller = new AbortController()
-    const blocks = getTranslationBlocks(a.contentHtml)
-    setTranslation(null)
-    setTranslationStatus('loading')
-
-    fetch('/api/translate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texts: [a.title, ...blocks.map((block) => block.text)] }),
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        const data = await response.json()
-        setTranslation({
-          title: data.translations[0],
-          blocks: blocks.map((block, index) => ({ ...block, text: data.translations[index + 1] })),
-        })
-        setTranslationStatus('ready')
-      })
-      .catch((error) => {
-        if (error.name !== 'AbortError') setTranslationStatus('error')
-      })
-
-    return () => controller.abort()
-  }, [a, translationAttempt])
 
   if (!a && loading) return (
     <div className="article-skeleton card" aria-hidden="true">
@@ -112,7 +158,7 @@ export default function Article() {
         structuredData={structuredData}
       />
       <div className="article-layout">
-      <article>
+      <article ref={articleElement}>
         <nav className="crumbs">
           <Link to={`/${rangeQuery}`}><Home size={14} /> Homepage</Link> <span>&gt;</span>
           <Link to={`/category/${a.category.toLowerCase()}${rangeQuery}`}>{a.category}</Link> <span>&gt;</span>
@@ -139,23 +185,19 @@ export default function Article() {
       </article>
 
       <aside>
-        <section className="card hindi-translation" lang="hi">
-          <h2><Languages size={19} /> हिंदी में खबर</h2>
-          {translationStatus === 'loading' && <div className="translation-skeleton" aria-hidden="true"><span /><span /><span /></div>}
-          {translationStatus === 'error' && (
-            <div className="translation-error">
-              <p>अनुवाद अभी उपलब्ध नहीं है।</p>
-              <button type="button" className="translation-retry" onClick={() => setTranslationAttempt((attempt) => attempt + 1)}>
-                <RefreshCw size={14} /> फिर कोशिश करें
-              </button>
-            </div>
-          )}
-          {translation && (
-            <div className="hindi-copy">
-              <h3>{translation.title}</h3>
-              {translation.blocks.map((block, index) => block.type === 'heading'
-                ? <h4 key={index}>{block.text}</h4>
-                : <p key={index}>{block.text}</p>)}
+        <section
+          className="card article-latest"
+          ref={latestElement}
+          style={latestFitComplete && articleHeight ? { height: `${articleHeight}px` } : undefined}
+        >
+          <h2 className="accent article-latest-heading"><TrendingUp size={18} /> Latest News</h2>
+          {latestArticles.slice(0, visibleLatestCount).map((article) => <Row key={article.id} a={article} />)}
+          {latestStatus === 'loading' && <div className="news-list-skeleton" aria-hidden="true"><span /><span /><span /></div>}
+          {latestStatus === 'error' && <p className="muted news-list-status">{latestError}</p>}
+          {latestStatus === 'ready' && latestArticles.length === 0 && <p className="muted news-list-status">No other stories are available right now.</p>}
+          {latestStatus === 'ready' && (
+            <div className="article-latest-measure" ref={latestMeasureElement} aria-hidden="true">
+              {latestArticles.map((article) => <Row key={article.id} a={article} />)}
             </div>
           )}
         </section>

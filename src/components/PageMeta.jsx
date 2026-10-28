@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { siteUrl } from '../site.js'
 
 const DEFAULT_TITLE = 'YHO News | Latest News, Headlines and Updates'
 const DEFAULT_DESCRIPTION = 'Stay informed with the latest news, headlines and updates from India and around the world on YHO News.'
@@ -25,7 +26,7 @@ export default function PageMeta({
   const structuredDataJson = structuredData ? JSON.stringify(structuredData) : ''
 
   useEffect(() => {
-    const canonicalUrl = new URL(path, window.location.origin).href
+    const canonicalUrl = siteUrl(path)
     document.title = title
     setMeta('meta[name="description"]', 'name', 'description', description)
     setMeta('meta[name="robots"]', 'name', 'robots', robots)
@@ -37,7 +38,7 @@ export default function PageMeta({
     setMeta('meta[name="twitter:title"]', 'name', 'twitter:title', title)
     setMeta('meta[name="twitter:description"]', 'name', 'twitter:description', description)
     if (image) {
-      const imageUrl = new URL(image, window.location.origin).href
+      const imageUrl = siteUrl(image)
       setMeta('meta[property="og:image"]', 'property', 'og:image', imageUrl)
       setMeta('meta[name="twitter:image"]', 'name', 'twitter:image', imageUrl)
     } else {

@@ -4,7 +4,8 @@ import PageMeta from '../components/PageMeta.jsx'
 import { WHATSAPP_CONTACT_URL } from '../data.js'
 
 const SUBJECTS = ['General enquiry', 'News tip', 'Advertising', 'Feedback', 'Technical issue']
-const CONTACT_EMAIL = 'yhoindia@gmail.com'
+const CONTACT_EMAILS = ['yhoindia@gmail.com', 'info@yhonews.com']
+const PRIMARY_CONTACT_EMAIL = CONTACT_EMAILS[0]
 
 export default function Contact() {
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
@@ -29,7 +30,7 @@ export default function Contact() {
         '',
         form.message.trim(),
       ].join('\n')
-      window.location.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+      window.location.href = `mailto:${PRIMARY_CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
       setSent(true)
     }
   }
@@ -54,7 +55,14 @@ export default function Contact() {
           </div>
           <div className="info-item">
             <span className="round solid" aria-hidden="true"><Mail /></span>
-            <div><h3>Email us</h3><a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></div>
+            <div>
+              <h3>Email us</h3>
+              <div>
+                {CONTACT_EMAILS.map((email) => (
+                  <div key={email}><a href={`mailto:${email}`}>{email}</a></div>
+                ))}
+              </div>
+            </div>
           </div>
           <div className="info-item">
             <span className="round solid" aria-hidden="true"><Phone /></span>
@@ -81,7 +89,7 @@ export default function Contact() {
         </aside>
 
         <form className="card form" onSubmit={submit} noValidate aria-labelledby="contact-form-title">
-          {sent && <p className="form-notice" role="status">Your email app should open with your message ready. Please press Send in that app to deliver it to <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.</p>}
+          {sent && <p className="form-notice" role="status">Your email app should open with your message ready. Please press Send in that app to deliver it to <a href={`mailto:${PRIMARY_CONTACT_EMAIL}`}>{PRIMARY_CONTACT_EMAIL}</a>.</p>}
           <div className="form-heading">
             <h2 id="contact-form-title">Send us a message</h2>
             <p>We usually respond within one working day.</p>

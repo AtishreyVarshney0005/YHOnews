@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin
 Disallow: /api/
 
-Sitemap: https://yhonewsindia.onrender.com/sitemap.xml
+Sitemap: https://yhonews.com/sitemap.xml

@@ -16,7 +16,7 @@ const VALUES = [
 
 const TEAM_MEMBERS = [
   { name: 'Naveen Kumar Gupta', position: 'Founder & Owner' },
-  { name: 'Bhanu Prakash Gupta', position: 'District Correspondent at Aligarh', image: team01 },
+  { name: 'Bhanu Prakash Gupta', position: 'Bureau Cheif District Correspondent at Aligarh', image: team01 },
   { name: 'Neeraj Saini', position: 'District Correspondent at Haridwar', image: team02 },
   { name: 'Mohit Verma', position: 'Reporter', image: team03 }
 ]

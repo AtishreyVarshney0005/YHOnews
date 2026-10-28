@@ -3,10 +3,11 @@ import react from '@vitejs/plugin-react'
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { translateTextsToHindi } from './server/translation.js'
 import { createSitemapXml } from './server/sitemap.js'
 import { PUBLISHABLE_CATEGORIES } from './shared/categories.js'
 import { articleData, execute, getDatabase as getMysqlDatabase, mysqlDate, query } from './server/database.js'
+
+const DATABASE_IMAGE_SQL = "CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(data, '$.image')) LIKE 'data:image/%' THEN 1 ELSE JSON_UNQUOTE(JSON_EXTRACT(data, '$.image')) END"
 
 function getApiError(error) {
 	if (error.status) return { status: error.status, message: error.message }
@@ -47,7 +48,7 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, databaseConf
 		response.end(body)
 	}
 
-	const publicImageUrl = (id, image, updatedAt) => String(image || '').startsWith('data:image/')
+	const publicImageUrl = (id, image, updatedAt) => image === 1 || image === true || String(image || '').startsWith('data:image/')
 		? publicImagePath(id, updatedAt)
 		: image || ''
 	const publicImagePath = (id, updatedAt) => `/api/articles/${encodeURIComponent(id)}/image?v=${encodeURIComponent(updatedAt || '1')}`
@@ -95,15 +96,14 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, databaseConf
 		const categories = [...allowedCategories]
 		const placeholders = categories.map(() => '?').join(', ')
 		const rows = await query(
-			`SELECT data, view_count FROM yho_news_articles
+			`SELECT JSON_REMOVE(data, '$.image') AS data, ${DATABASE_IMAGE_SQL} AS image, view_count
+			 FROM yho_news_articles
 			 WHERE status = 'Published' AND category IN (${placeholders})
 			 ORDER BY updated_at DESC`,
 			categories,
 		)
-		return rows.map(({ data, view_count }) => {
+		return rows.map(({ data, image, view_count }) => {
 			const article = articleData(data)
-			const image = article.image
-			delete article.image
 			return toPublicArticle({ ...article, viewCount: view_count, image })
 		})
 	}
@@ -114,11 +114,12 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, databaseConf
 			const categories = [...allowedCategories]
 			const placeholders = categories.map(() => '?').join(', ')
 			const rows = await query(
-				`SELECT data FROM yho_news_articles
+				`SELECT JSON_UNQUOTE(JSON_EXTRACT(data, '$.image')) AS image
+				 FROM yho_news_articles
 				 WHERE id = ? AND status = 'Published' AND category IN (${placeholders})`,
 				[id, ...categories],
 			)
-			return rows[0] ? articleData(rows[0].data).image || null : null
+			return rows[0]?.image || null
 		}
 		const article = (await readLocalArticles()).find((item) => item.id === id && item.status === 'Published' && allowedCategories.has(item.category))
 		return article?.image || null
@@ -135,16 +136,17 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, databaseConf
 				[id, ...categories],
 			)
 			if (!result.affectedRows) return null
-			const rows = await query('SELECT data, view_count FROM yho_news_articles WHERE id = ?', [id])
+			const rows = await query(
+				`SELECT JSON_REMOVE(data, '$.image') AS data, ${DATABASE_IMAGE_SQL} AS image, view_count
+				 FROM yho_news_articles WHERE id = ?`,
+				[id],
+			)
 			const row = rows[0]
 			if (!row) return null
 			const article = articleData(row.data)
-			const image = article.image || ''
 			return {
 				...article,
-				image: image.startsWith('data:image/')
-					? publicImagePath(article.id, article.updatedAt || article.createdAt)
-					: image,
+				image: publicImageUrl(article.id, row.image, article.updatedAt || article.createdAt),
 				viewCount: row.view_count,
 			}
 		}
@@ -253,12 +255,11 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, databaseConf
 		const publicCollection = pathname === '/api/articles'
 		const publicItem = pathname.match(/^\/api\/articles\/([^/]+)$/)
 		const publicImage = pathname.match(/^\/api\/articles\/([^/]+)\/image$/)
-		const translation = pathname === '/api/translate'
 		const adminSession = pathname === '/api/admin/session'
 		const adminLogin = pathname === '/api/admin/login'
 		const adminLogout = pathname === '/api/admin/logout'
 		const adminArticles = pathname.match(/^\/api\/admin\/articles(?:\/([^/]+))?$/)
-		if (!sitemap && !publicCollection && !publicItem && !publicImage && !translation && !adminSession && !adminLogin && !adminLogout && !adminArticles) return next()
+		if (!sitemap && !publicCollection && !publicItem && !publicImage && !adminSession && !adminLogin && !adminLogout && !adminArticles) return next()
 
 		try {
 			if (sitemap && request.method === 'GET') {
@@ -277,11 +278,6 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, databaseConf
 						.filter((article) => article.status === 'Published' && allowedCategories.has(article.category))
 						.map(({ id, updatedAt, publishedAt }) => ({ id, updatedAt, publishedAt }))
 				return sendSitemap(response, createSitemapXml(articles))
-			}
-
-			if (translation && request.method === 'POST') {
-				const { texts } = await readJson(request)
-				return sendJson(response, 200, { translations: await translateTextsToHindi(texts) })
 			}
 
 			if (publicImage && request.method === 'GET') {
@@ -374,6 +370,9 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, databaseConf
 export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd(), '')
 	return {
+		define: {
+			__PUBLIC_SITE_URL__: JSON.stringify(process.env.PUBLIC_SITE_URL || env.PUBLIC_SITE_URL || 'https://yhonews.com'),
+		},
 		plugins: [
 			react(),
 			adminApiPlugin({

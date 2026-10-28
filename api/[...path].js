@@ -1,10 +1,14 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
-import { translateTextsToHindi } from '../server/translation.js'
+import { createRequire } from 'node:module'
 import { createSitemapXml } from '../server/sitemap.js'
 import { PUBLISHABLE_CATEGORIES } from '../shared/categories.js'
 import { articleData, execute, mysqlDate, query } from '../server/database.js'
 
+const require = createRequire(import.meta.url)
+const seedArticles = require('../data/articles.json')
+
 const ARTICLE_CATEGORIES = new Set(PUBLISHABLE_CATEGORIES)
+const DATABASE_IMAGE_SQL = "CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(data, '$.image')) LIKE 'data:image/%' THEN 1 ELSE JSON_UNQUOTE(JSON_EXTRACT(data, '$.image')) END"
 
 function sendJson(response, status, body, headers = {}) {
   response.statusCode = status
@@ -34,13 +38,29 @@ function sendSitemap(response, body) {
 }
 
 function publicImageUrl(id, image, updatedAt) {
-  return String(image || '').startsWith('data:image/')
+  return image === 1 || image === true || String(image || '').startsWith('data:image/')
     ? publicImagePath(id, updatedAt)
     : image || ''
 }
 
 function publicImagePath(id, updatedAt) {
   return `/api/articles/${encodeURIComponent(id)}/image?v=${encodeURIComponent(updatedAt || '1')}`
+}
+
+function hasDatabaseConfiguration(configuration = process.env) {
+  const required = ['MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DATABASE']
+  return required.every((name) => Boolean(configuration[name]))
+}
+
+function fallbackPublishedArticles() {
+  return (Array.isArray(seedArticles) ? seedArticles : [])
+    .filter((article) => article && article.status !== 'Draft' && ARTICLE_CATEGORIES.has(String(article.category || '')))
+    .map((article) => toPublicArticle({
+      ...article,
+      viewCount: Number(article.viewCount) || 0,
+      publishedAt: article.publishedAt || article.createdAt || new Date().toISOString(),
+      updatedAt: article.updatedAt || article.createdAt || article.publishedAt || new Date().toISOString(),
+    }, article.image))
 }
 
 function toPublicArticle(article, image = article.image) {
@@ -99,16 +119,17 @@ async function readPublishedArticleAndCountView(id) {
   )
   if (!result.affectedRows) return null
 
-  const rows = await query('SELECT data, view_count FROM yho_news_articles WHERE id = ?', [id])
+  const rows = await query(
+    `SELECT JSON_REMOVE(data, '$.image') AS data, ${DATABASE_IMAGE_SQL} AS image, view_count
+     FROM yho_news_articles WHERE id = ?`,
+    [id],
+  )
   const row = rows[0]
   if (!row) return null
   const article = articleData(row.data)
-  const image = article.image || ''
   return {
     ...article,
-    image: image.startsWith('data:image/')
-      ? publicImagePath(article.id, article.updatedAt || article.createdAt)
-      : image,
+    image: publicImageUrl(article.id, row.image, article.updatedAt || article.createdAt),
     viewCount: row.view_count,
   }
 }
@@ -117,11 +138,12 @@ async function readPublishedArticleImage(id) {
   const categories = [...ARTICLE_CATEGORIES]
   const placeholders = categories.map(() => '?').join(', ')
   const rows = await query(
-    `SELECT data FROM yho_news_articles
+    `SELECT JSON_UNQUOTE(JSON_EXTRACT(data, '$.image')) AS image
+     FROM yho_news_articles
      WHERE id = ? AND status = 'Published' AND category IN (${placeholders})`,
     [id, ...categories],
   )
-  return rows[0] ? articleData(rows[0].data).image || null : null
+  return rows[0]?.image || null
 }
 
 async function insertArticle(article) {
@@ -192,7 +214,6 @@ export default async function handler(request, response) {
     const pathname = new URL(request.url || '/', 'http://localhost').pathname
     const publicItem = pathname.match(/^\/api\/articles\/([^/]+)$/)
     const publicImage = pathname.match(/^\/api\/articles\/([^/]+)\/image$/)
-    const translation = pathname === '/api/translate'
     const adminArticles = pathname.match(/^\/api\/admin\/articles(?:\/([^/]+))?$/)
 
     if (pathname === '/api/sitemap' && request.method === 'GET') {
@@ -212,12 +233,22 @@ export default async function handler(request, response) {
       return sendJson(response, 200, { status: 'ok' })
     }
 
-    if (translation && request.method === 'POST') {
-      const { texts } = readJson(request)
-      return sendJson(response, 200, { translations: await translateTextsToHindi(texts) })
-    }
-
     if (publicImage && request.method === 'GET') {
+      if (!hasDatabaseConfiguration()) {
+        const fallbackArticle = fallbackPublishedArticles().find((article) => article.id === decodeURIComponent(publicImage[1]))
+        if (!fallbackArticle?.image) return sendJson(response, 404, { message: 'Article image not found.' })
+        const image = String(fallbackArticle.image || '')
+        if (!image.startsWith('data:image/')) return sendJson(response, 404, { message: 'Article image not found.' })
+        const match = /^data:(image\/(?:jpeg|png|webp));base64,([a-z0-9+/=\s]+)$/i.exec(image)
+        if (!match) return sendJson(response, 404, { message: 'Article image not found.' })
+        const body = Buffer.from(match[2], 'base64')
+        response.statusCode = 200
+        response.setHeader('Content-Type', match[1])
+        response.setHeader('Content-Length', body.length)
+        response.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable')
+        response.setHeader('X-Content-Type-Options', 'nosniff')
+        return response.end(body)
+      }
       const image = await readPublishedArticleImage(decodeURIComponent(publicImage[1]))
       return image ? sendImage(response, image) : sendJson(response, 404, { message: 'Article image not found.' })
     }
@@ -249,25 +280,31 @@ export default async function handler(request, response) {
     }
 
     if (pathname === '/api/articles' && request.method === 'GET') {
+      if (!hasDatabaseConfiguration()) {
+        return sendJson(response, 200, { articles: fallbackPublishedArticles() }, { 'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600' })
+      }
       const categories = [...ARTICLE_CATEGORIES]
       const placeholders = categories.map(() => '?').join(', ')
       const rows = await query(
-        `SELECT data, view_count FROM yho_news_articles
+        `SELECT JSON_REMOVE(data, '$.image') AS data, ${DATABASE_IMAGE_SQL} AS image, view_count
+         FROM yho_news_articles
          WHERE status = 'Published' AND category IN (${placeholders})
          ORDER BY updated_at DESC`,
         categories,
       )
-      const articles = rows.map(({ data, view_count }) => {
+      const articles = rows.map(({ data, image, view_count }) => {
         const article = articleData(data)
-        const image = article.image
-        delete article.image
-        return toPublicArticle({ ...article, viewCount: view_count }, image)
+        return toPublicArticle({ ...article, image, viewCount: view_count }, image)
       })
       return sendJson(response, 200, { articles }, { 'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600' })
     }
 
     if (publicItem && request.method === 'GET') {
       const id = decodeURIComponent(publicItem[1])
+      if (!hasDatabaseConfiguration()) {
+        const fallbackArticle = fallbackPublishedArticles().find((article) => article.id === id)
+        return fallbackArticle ? sendJson(response, 200, { article: fallbackArticle }) : sendJson(response, 404, { message: 'Article not found.' })
+      }
       const article = await readPublishedArticleAndCountView(id)
       return article ? sendJson(response, 200, { article }) : sendJson(response, 404, { message: 'Article not found.' })
     }
