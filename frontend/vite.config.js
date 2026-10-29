@@ -56,7 +56,7 @@ function adminApiPlugin({ adminEmail, adminPassword, sessionSecret, databaseConf
 		response.end(body)
 	}
 
-	const publicImageUrl = (id, image, updatedAt) => image === 1 || image === true || String(image || '').startsWith('data:image/')
+	const publicImageUrl = (id, image, updatedAt) => image === 1 || image === true || String(image || '') === '1' || String(image || '').startsWith('data:image/')
 		? publicImagePath(id, updatedAt)
 		: image || ''
 	const publicImagePath = (id, updatedAt) => `/api/articles/${encodeURIComponent(id)}/image?v=${encodeURIComponent(updatedAt || '1')}`

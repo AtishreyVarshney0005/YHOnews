@@ -38,7 +38,7 @@ function sendSitemap(response, body) {
 }
 
 function publicImageUrl(id, image, updatedAt) {
-  return image === 1 || image === true || String(image || '').startsWith('data:image/')
+  return image === 1 || image === true || String(image || '') === '1' || String(image || '').startsWith('data:image/')
     ? publicImagePath(id, updatedAt)
     : image || ''
 }
