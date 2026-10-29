@@ -59,6 +59,7 @@ const server = await preview({
 		allowedHosts: [
 			'yhonews.com',
 			'www.yhonews.com',
+			'darkviolet-crocodile-788179.hostingersite.com',
 		].filter(Boolean),
 	},
 })
